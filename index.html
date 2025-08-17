@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#000000">
+  <title>Veltric Converter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/ico" href="Assets/favicon.ico" />
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Press Start 2P', monospace, sans-serif;
+      color: #f1f1f1;
+      overflow-x: hidden;
+      background-color: #000;
+      
+      
+      /* Grid pattern background for retro feel */
+      background-image: 
+        linear-gradient(45deg, #00ffff 1px, transparent 1px),
+        linear-gradient(-45deg, #ff00ff 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridScroll 30s linear infinite;
+
+    }
+    body {
+      font-size: 14px;
+      line-height: 1.8;
+      letter-spacing: 0.5px;
+    }
+    body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: 
+    linear-gradient(45deg, #00ffff 1px, transparent 1px),
+    linear-gradient(-45deg, #ff00ff 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: gridScroll 10s linear infinite;
+  z-index: -1;
+}
+
+    /* Background animation to move grid diagonally */
+    @keyframes gridScroll {
+      0% { background-position: 0 0, 0 0; }
+      100% { background-position: 500px 500px, 500px 500px; }
+    }
+    html {
+      scrollbar-color: #00ffff #111;
+      scrollbar-width: thin;
+    }
+
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 30px 20px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #00ff99;
+      text-shadow: 2px 2px #000;
+    }
+
+     /* Section card design */
+     .section {
+      margin: 40px 0;
+      background: rgba(0, 0, 0, 0.75);
+      padding: 20px;
+      border: 2px dashed #00ffcc;
+      border-radius: 10px;
+      box-shadow: 0 0 15px #00ffcc55;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeInUp 1s forwards;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    /* Section hover glow effect */
+    .section:hover {
+      transform: translateY(-5px) scale(1.02);
+      box-shadow: 0 0 20px #00ffffcc, 0 0 40px #00ffff88;
+      border-color: #ff00ff;
+    }
+
+    /* Delays for fade-in effect on multiple sections */
+    .section:nth-of-type(2) { animation-delay: 0.3s; }
+    .section:nth-of-type(3) { animation-delay: 0.6s; }
+    .section:nth-of-type(4) { animation-delay: 0.9s; }
+
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Link styles */
+    a {
+      color: #ffcc00;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-shadow: 0 0 5px #fff;
+    }
+
+
+    textarea, select, input[type="text"] {
+      background-color: #111;
+      border: 2px solid #00ffff;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px #00ffff;
+      color: #fff;
+      width: 90%;
+      margin: 10px 0;
+      font-size: 12px;
+    }
+
+    button {
+      background-color: #ff00ff;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      box-shadow: 0 0 5px #ff00ff;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    button:hover {
+      background-color: #00ffff;
+      box-shadow: 0 0 10px #00ffff;
+    }
+
+    .output-box {
+      background-color: #111;
+      border: 2px solid #00ffff;
+      padding: 10px;
+      margin-top: 10px;
+      color: #fff;
+      text-align: left;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    footer {
+      margin-top: 60px;
+      font-size: 10px;
+      color: #aaa;
+    }
+    .output-box {
+  background-color: #111;
+  border: 2px solid #00ffff;
+  padding: 5px; /* Reduced padding */
+  margin-top: 10px;
+  color: #fff;
+  text-align: left;
+  overflow-wrap: break-word;
+  white-space: normal; /* Ensures the text can wrap */
+  font-size: 12px; /* Smaller text for output */
+  max-width: 100%; /* Ensure it doesn't go outside the container */
+  margin: 10px auto; /* Center the output */
+}
+.hash-256 {
+  background-color: #111;
+  border: 2px solid #00ffff;
+  padding: 8px;
+  margin-top: 10px;
+  color: #fff;
+  font-family: 'Courier New', monospace; /* Monospace for a more code-like appearance */
+  font-size: 14px; /* Adjust font size */
+  word-wrap: break-word; /* Break long lines */
+  white-space: normal; /* Allow text to wrap */
+  max-width: 100%; /* Ensure it doesn't overflow */
+  overflow-x: auto; /* Allow horizontal scrolling if content is too wide */
+  word-break: break-all; /* Force breaks at any point if the word is too long */
+  margin: 10px auto;
+}
+
+
+  /* Avatar image styling */
+  .avatar {
+      width: 80px;
+      height: 80px;
+      image-rendering: pixelated;
+      border: 4px solid #00ffff;
+      box-shadow: 0 0 10px #00ffffaa;
+      background-color: #111;
+      padding: 6px;
+      border-radius: 8px;
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+
+    /* Container for avatar */
+    .avatar-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    /* Glow animation on avatar */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 10px #00ffffaa; }
+      50% { box-shadow: 0 0 20px #00ffffcc; }
+    }
+
+   
+
+  </style>
+</head>
+
+<body>
+<div class="container">
+  <h1>Veltric Converter</h1>
+<!-- Avatar and Dialogue Section -->
+
+    <div class="avatar-wrapper">
+      <a href="index.html">
+      <img src="Assets/Avatar.png" alt="Veltric" class="avatar" onerror="this.src='fallback.png'"></a>
+    </div>
+    <div class="dialogue-box">
+      <p><span id="typewriter"></span></p>
+    </div>
+
+  <!-- CSV / JSON -->
+  <div class="section">
+    <h2>📁 CSV ↔ JSON</h2>
+    <textarea id="csvInput" rows="5" placeholder="Enter CSV or JSON data here"></textarea>
+    <select id="csvJsonSelect">
+      <option value="csvToJson">CSV to JSON</option>
+      <option value="jsonToCsv">JSON to CSV</option>
+    </select>
+    <button onclick="convertCSVJSON()">Convert</button>
+    <div class="output-box" id="csvJsonOutput"></div>
+  </div>
+
+  <!-- Markdown to HTML -->
+  <div class="section">
+    <h1>Markdown to HTML</h1>
+    <textarea id="markdownInput" placeholder="Type your Markdown here..."></textarea>
+    <button onclick="convertMarkdown()">Convert</button>
+    <div id="htmlOutput"></div>
+  </div>
+
+  <!-- Text to Base64 -->
+  <div class="section">
+    <h2>🔐 Text → Base64</h2>
+    <textarea id="textInput" rows="3" placeholder="Enter text"></textarea>
+    <button onclick="textToBase64()">Convert</button>
+    <div class="output-box" id="textOutput"></div>
+  </div>
+
+  
+      <div class="section" id="imageBase64Converter">
+        <h2>🎨 Image ⇆ Base64</h2>
+        
+        <div class="converter-container">
+          <!-- Image to Base64 -->
+          <div>
+            <h3>Convert Image to Base64</h3>
+            <input type="file" id="imageInput" class="file-input" accept="image/*">
+            <button class="convert-btn" onclick="imageToBase64()">Convert to Base64</button>
+            <textarea id="base64Output" class="file-input" placeholder="Base64 output" readonly></textarea>
+          </div>
+          </div>
+          
+            <h2>🔄 Base64 to Image Converter</h2>
+          
+            <div>
+              <h3>Enter Base64 String to Convert to Image</h3>
+              <textarea id="base64Input" placeholder="Paste your Base64 string here..." rows="6" cols="50"></textarea>
+              <button onclick="convertBase64ToImage()">Convert</button>
+          
+              <!-- Image display after conversion -->
+              <div>
+                <h3>Converted Image:</h3>
+                <img id="convertedImage" style="max-width: 100%; max-height: 400px; display: none;">
+              </div>
+          
+              <!-- Download link -->
+              <a id="downloadImageLink" style="display: none;" class="button" download="converted-image.png">Download Converted Image</a>
+            </div>
+          </div>
+          
+          <div class="section" id="imageBase64Converter">
+      <div class="container">
+        <h1>Hex to RGB & RGB to Hex Converter</h1>
+
+        <!-- Hex to RGB Converter -->
+        <div class="converter">
+            <h2>Hex to RGB</h2>
+            <label for="hexInput">Enter Hex Color:</label>
+            <input type="text" id="hexInput" placeholder="#34A7E0" />
+            <button onclick="convertHexToRgb()">Convert</button>
+            <p id="hexToRgbResult">Result: </p>
+        </div>
+
+        <!-- RGB to Hex Converter -->
+        <div class="converter">
+            <h2>RGB to Hex</h2>
+            <label for="rInput">Red:</label>
+            <input type="number" id="rInput" placeholder="0" min="0" max="255" />
+            <label for="gInput">Green:</label>
+            <input type="number" id="gInput" placeholder="0" min="0" max="255" />
+            <label for="bInput">Blue:</label>
+            <input type="number" id="bInput" placeholder="0" min="0" max="255" />
+            <button onclick="convertRgbToHex()">Convert</button>
+            <p id="rgbToHexResult">Result: </p>
+        </div>
+    </div>
+  </div>
+  <div class="section" id="hashGenerator">
+    <h2>Hash Generator</h2>
+  <label for="hashInput">Enter Text:</label>
+  <input type="text" id="hashInput" placeholder="Enter text to generate hash">
+
+  <button onclick="generateHashes()">Generate Hashes</button>
+  <div class="output-box hash-256">
+    <h3>SHA256 Hash:</h3>
+    <pre id="sha256Output"></pre>
+    <button onclick="copyToClipboard('sha256Output')">Copy SHA256</button>
+    
+    <h3>MD5 Hash:</h3>
+    <pre id="md5Output"></pre>
+    <button onclick="copyToClipboard('md5Output')">Copy MD5</button>
+ </div>
+ </div>   
+  <!-- Image Format Converter Section -->
+<div class="section">
+  <h2>🎨 Image Format Converter</h2>
+
+  <div>
+    <h3>Convert Image to Format (PNG, JPG, GIF, BMP, TIFF, WebP)</h3>
+    <input type="file" id="imageFileInput" accept="image/*">
+    <select id="imageFormatSelect">
+      <option value="image/png">PNG</option>
+      <option value="image/jpeg">JPG</option>
+      <option value="image/gif">GIF</option>
+      <option value="image/bmp">BMP</option>
+      <option value="image/tiff">TIFF</option>
+      <option value="image/webp">WebP</option>
+    </select>
+    <button onclick="convertImageFormat()">Convert</button>
+
+    <!-- Canvas to hold the image for conversion -->
+    <canvas id="imageCanvas" style="display:none;"></canvas>
+    <a id="downloadLink" style="display:none;" download="converted-image" class="button">Download Converted Image</a>
+
+  </div>
+</div>
+  
+  <footer>ⓒ 2025 Veltric Core ⚡</footer>
+
+
+<script>
+    function copyToClipboard(elementId) {
+  const text = document.getElementById(elementId).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    alert(`${elementId.replace('Output', '')} copied to clipboard!`);
+  }, () => {
+    alert('Failed to copy!');
+  });
+}
+
+    
+  function convertCSVJSON() {
+    const inputText = document.getElementById('csvInput').value;
+    const selectedOption = document.getElementById('csvJsonSelect').value;
+    let outputText = '';
+
+    if (selectedOption === 'csvToJson') {
+      outputText = CSVToJSON(inputText);
+    } else if (selectedOption === 'jsonToCsv') {
+      outputText = JSONToCSV(inputText);
+    }
+    document.getElementById('csvJsonOutput').innerText = outputText;
+  }
+
+  function CSVToJSON(csv) {
+    const rows = csv.split('\n').filter(r => r.trim() !== '');
+    const headers = rows[0].split(',');
+    const result = rows.slice(1).map(row => {
+      const values = row.split(',');
+      const obj = {};
+      headers.forEach((header, i) => {
+        obj[header] = values[i];
+      });
+      return obj;
+    });
+    return JSON.stringify(result, null, 2);
+  }
+
+  function JSONToCSV(json) {
+    const obj = JSON.parse(json);
+    const headers = Object.keys(obj[0]);
+    const rows = obj.map(row => headers.map(header => row[header]).join(','));
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  
+  function textToBase64() {
+    const text = document.getElementById('textInput').value;
+    const encoded = btoa(text);
+    document.getElementById('textOutput').innerText = encoded;
+  }
+
+  function base64ToText() {
+    const base64 = document.getElementById('base64Input').value;
+    try {
+      const decoded = atob(base64);
+      document.getElementById('base64Output').innerText = decoded;
+    } catch (e) {
+      document.getElementById('base64Output').innerText = '⚠️ Invalid Base64!';
+    }
+  }
+  
+  function imageToBase64() {
+  const fileInput = document.getElementById('imageInput');
+  const base64Output = document.getElementById('base64Output');
+
+  if (!fileInput.files.length) {
+    base64Output.value = 'Please select an image first!';
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function (e) {
+    base64Output.value = e.target.result;
+  };
+
+  reader.readAsDataURL(file);
+}
+
+function convertBase64ToImage() {
+    const base64Input = document.getElementById('base64Input').value.trim();
+    const imageElement = document.getElementById('convertedImage');
+    const downloadLink = document.getElementById('downloadImageLink');
+
+    // Check if the input is not empty and is a valid Base64 string
+    if (base64Input === '' || !base64Input.startsWith('data:image/')) {
+      alert('Please enter a valid Base64 image string.');
+      return;
+    }
+
+    // Display the image
+    imageElement.src = base64Input;
+    imageElement.style.display = 'inline'; // Show the image element
+
+    // Create a temporary link to allow downloading the image
+    downloadLink.href = base64Input;
+    downloadLink.style.display = 'inline'; // Show the download link
+  }
+
+// Function to generate SHA256 hash
+async function generateSha256Hash(text) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Function to generate MD5 hash using the js-md5 library
+    function generateMd5Hash(text) {
+      return md5(text); // Uses js-md5 function to generate MD5 hash
+    }
+
+    // Function to handle hash generation
+    function generateHashes() {
+      const inputText = document.getElementById('hashInput').value.trim();
+
+      if (inputText === '') {
+        alert('Please enter some text to generate hashes.');
+        return;
+      }
+
+      // SHA256 Hash
+      generateSha256Hash(inputText).then(sha256Hash => {
+        document.getElementById('sha256Output').innerText = sha256Hash;
+      });
+
+      // MD5 Hash (with debug log)
+      const md5Hash = generateMd5Hash(inputText);
+      console.log('Generated MD5 Hash:', md5Hash);  // Debugging output
+      document.getElementById('md5Output').innerText = md5Hash;
+    }
+
+// Hex to RGB
+function convertHexToRgb() {
+    const hex = document.getElementById('hexInput').value.trim();
+    if (isValidHex(hex)) {
+        const rgb = hexToRgb(hex);
+        document.getElementById('hexToRgbResult').innerText = `Result: ${rgb}`;
+    } else {
+        document.getElementById('hexToRgbResult').innerText = 'Please enter a valid hex color.';
+    }
+}
+
+function hexToRgb(hex) {
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function isValidHex(hex) {
+    const hexRegex = /^#[0-9A-Fa-f]{6}$/;
+    return hexRegex.test(hex);
+}
+
+// Hex to RGB
+function convertHexToRgb() {
+    const hex = document.getElementById('hexInput').value.trim();
+    if (isValidHex(hex)) {
+        const rgb = hexToRgb(hex);
+        document.getElementById('hexToRgbResult').innerText = `Result: ${rgb}`;
+    } else {
+        document.getElementById('hexToRgbResult').innerText = 'Please enter a valid hex color.';
+    }
+}
+
+function hexToRgb(hex) {
+    // Remove the '#' symbol if present
+    hex = hex.replace('#', '');
+    
+    if (hex.length !== 6) {
+        return 'Invalid hex color';
+    }
+
+    let r = parseInt(hex.slice(0, 2), 16);
+    let g = parseInt(hex.slice(2, 4), 16);
+    let b = parseInt(hex.slice(4, 6), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function isValidHex(hex) {
+    const hexPattern = /^#([0-9A-Fa-f]{6})$/;
+    return hexPattern.test(hex);
+}
+
+// RGB to Hex
+function convertRgbToHex() {
+    const r = parseInt(document.getElementById('rInput').value);
+    const g = parseInt(document.getElementById('gInput').value);
+    const b = parseInt(document.getElementById('bInput').value);
+    
+    if (isValidRgb(r, g, b)) {
+        const hex = rgbToHex(r, g, b);
+        document.getElementById('rgbToHexResult').innerText = `Result: ${hex}`;
+    } else {
+        document.getElementById('rgbToHexResult').innerText = 'Please enter valid RGB values (0-255).';
+    }
+}
+
+function rgbToHex(r, g, b) {
+    return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase()}`;
+}
+
+function isValidRgb(r, g, b) {
+    return (r >= 0 && r <= 255) && (g >= 0 && g <= 255) && (b >= 0 && b <= 255);
+}
+// Function to convert the uploaded image to a selected format
+function convertImageFormat() {
+  const fileInput = document.getElementById("imageFileInput");
+  const formatSelect = document.getElementById("imageFormatSelect");
+  const canvas = document.getElementById("imageCanvas");
+  const downloadLink = document.getElementById("downloadLink");
+
+  if (fileInput.files.length === 0) {
+    alert("Please select an image first!");
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      // Draw image onto canvas
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+
+      // Convert canvas content to selected format
+      const selectedFormat = formatSelect.value;
+      const imageDataURL = canvas.toDataURL(selectedFormat);
+
+      // Set up download link
+      downloadLink.href = imageDataURL;
+      const extension = selectedFormat.split("/")[1];
+      downloadLink.download = `converted-image.${extension}`;
+      downloadLink.style.display = "inline-block";
+    };
+    img.src = e.target.result;
+  };
+
+  reader.readAsDataURL(file);
+}
+
+function convertMarkdown() {
+    const markdownText = document.getElementById("markdownInput").value;
+    const html = marked.parse(markdownText);
+    document.getElementById("htmlOutput").innerHTML = html;
+  }
+</script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/js-md5@0.7.3/build/md5.min.js"></script>
+</body>
+</html>
