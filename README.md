@@ -1,5 +1,5 @@
 # VConverter
-A Web base file converter With
+A Web base Converter with Converters Such As:
 
 #### CSV <---> JSON
 #### Markdown ---> HTML
