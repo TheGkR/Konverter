@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#000000">
-  <title>Veltric Converter</title>
+  <title>Konverter</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="icon" type="image/ico" href="Assets/favicon.ico" />
 
@@ -203,17 +203,7 @@
       animation: pulseGlow 2s infinite ease-in-out;
     }
 
-    /* Container for avatar */
-    .avatar-wrapper {
-      position: relative;
-      display: inline-block;
-    }
-
-    /* Glow animation on avatar */
-    @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 10px #00ffffaa; }
-      50% { box-shadow: 0 0 20px #00ffffcc; }
-    }
+   
 
    
 
@@ -222,15 +212,10 @@
 
 <body>
 <div class="container">
-  <h1>Veltric Converter</h1>
+  <h1>Konverter</h1>
 <!-- Avatar and Dialogue Section -->
 
-    <div class="avatar-wrapper">
-      <a href="index.html">
-      <img src="Assets/Avatar.png" alt="Veltric" class="avatar" onerror="this.src='fallback.png'"></a>
-    </div>
-    <div class="dialogue-box">
-      <p><span id="typewriter"></span></p>
+   
     </div>
 
   <!-- CSV / JSON -->
@@ -624,3 +609,4 @@ function convertMarkdown() {
 <script src="https://cdn.jsdelivr.net/npm/js-md5@0.7.3/build/md5.min.js"></script>
 </body>
 </html>
+
