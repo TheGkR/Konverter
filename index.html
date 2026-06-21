@@ -127,6 +127,15 @@
       box-sizing: border-box;
     }
 
+    /* Used for the read-only Base64 output boxes once a large file is
+       loaded — we show a short preview instead of the full string, since
+       rendering megabytes of text in a textarea is what causes lag. */
+    .truncated-note {
+      font-size: 10px;
+      color: #aaa;
+      margin-top: 4px;
+    }
+
     button {
       background-color: #ff00ff;
       color: #fff;
@@ -241,6 +250,8 @@
         <input type="file" id="imageInput" class="file-input" accept="image/*">
         <button class="convert-btn" onclick="imageToBase64()">Convert to Base64</button>
         <textarea id="base64Output" class="file-input" placeholder="Base64 output" readonly></textarea>
+        <div class="truncated-note" id="base64OutputNote"></div>
+        <button id="copyBase64OutputBtn" style="display:none;" onclick="copyFullBase64Output()">Copy full Base64</button>
       </div>
     </div>
 
@@ -386,9 +397,20 @@
     document.getElementById('textOutput').innerText = encoded;
   }
 
+  // Holds the full Base64 string in memory so the DOM never has to
+  // render megabytes of text — only a short preview is shown.
+  let fullBase64Output = '';
+
   function imageToBase64() {
     const fileInput = document.getElementById('imageInput');
     const base64Output = document.getElementById('base64Output');
+    const note = document.getElementById('base64OutputNote');
+    const copyBtn = document.getElementById('copyBase64OutputBtn');
+
+    base64Output.value = '';
+    note.textContent = '';
+    copyBtn.style.display = 'none';
+    fullBase64Output = '';
 
     if (!fileInput.files.length) {
       base64Output.value = 'Please select an image first!';
@@ -397,24 +419,40 @@
 
     const file = fileInput.files[0];
 
-    // Guard against extremely large images locking up the page while
-    // FileReader encodes them to a base64 string.
-    const MAX_BYTES = 8 * 1024 * 1024; // 8MB
-    if (file.size > MAX_BYTES) {
-      base64Output.value = `Image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please use an image under 8MB.`;
-      return;
-    }
-
+    // No artificial file-size cap here — large/high-quality images are
+    // fine. The previous version blocked anything over 8MB, which is
+    // exactly what was breaking on bigger photos. The actual fix is to
+    // not render the full string in the DOM (below), not to reject it.
     const reader = new FileReader();
 
     reader.onload = function (e) {
-      base64Output.value = e.target.result;
+      fullBase64Output = e.target.result;
+
+      const PREVIEW_LIMIT = 2000; // characters shown in the textarea
+      if (fullBase64Output.length > PREVIEW_LIMIT) {
+        base64Output.value = fullBase64Output.slice(0, PREVIEW_LIMIT) + '... [truncated for display]';
+        const sizeKB = (fullBase64Output.length / 1024).toFixed(1);
+        note.textContent = `Full Base64 string is ${sizeKB} KB. Showing a preview only — use "Copy full Base64" to get the entire string.`;
+        copyBtn.style.display = 'inline-block';
+      } else {
+        base64Output.value = fullBase64Output;
+      }
     };
     reader.onerror = function () {
       base64Output.value = 'Failed to read the selected file.';
+      fullBase64Output = '';
     };
 
     reader.readAsDataURL(file);
+  }
+
+  function copyFullBase64Output() {
+    if (!fullBase64Output) return;
+    navigator.clipboard.writeText(fullBase64Output).then(() => {
+      alert('Full Base64 string copied to clipboard!');
+    }, () => {
+      alert('Failed to copy!');
+    });
   }
 
   function setBase64ToImageStatus(message, type) {
@@ -423,17 +461,36 @@
     status.className = 'status-text' + (type ? ' ' + type : '');
   }
 
+  function dataUrlToBlob(dataUrl) {
+    const [header, base64] = dataUrl.split(',');
+    const mimeMatch = header.match(/data:(.*?);base64/);
+    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
+  }
+
+  let currentImageObjectUrl = null;
+
   function convertBase64ToImage() {
     const base64Input = document.getElementById('base64Input').value.trim();
     const imageElement = document.getElementById('convertedImage');
     const downloadLink = document.getElementById('downloadImageLink');
 
-    // Reset previous state so a failed/replaced conversion doesn't leave
-    // a stale image or download link visible.
+    // Reset previous state, and release any old blob URL so memory
+    // doesn't build up across repeated conversions.
     imageElement.style.display = 'none';
     imageElement.removeAttribute('src');
     downloadLink.style.display = 'none';
     downloadLink.removeAttribute('href');
+    if (currentImageObjectUrl) {
+      URL.revokeObjectURL(currentImageObjectUrl);
+      currentImageObjectUrl = null;
+    }
     setBase64ToImageStatus('', '');
 
     if (base64Input === '') {
@@ -446,31 +503,40 @@
       return;
     }
 
-    // Guard against pasting an absurdly large string, which is what was
-    // likely causing the page to hang/crash: a multi-megabyte string
-    // sitting in a textarea, combined with constant CSS animations
-    // repainting underneath it, is very heavy on the browser.
-    const MAX_LENGTH = 15_000_000; // ~15M characters, comfortably above a typical photo
-    if (base64Input.length > MAX_LENGTH) {
-      setBase64ToImageStatus('This Base64 string is too large to preview safely in the browser.', 'error');
+    // No artificial length cap — large/high-quality images are valid
+    // input. Converting to a Blob + object URL (below) is what keeps
+    // this fast even for big images, rather than rejecting them.
+    let blob;
+    try {
+      blob = dataUrlToBlob(base64Input);
+    } catch (err) {
+      setBase64ToImageStatus('Could not decode this Base64 string. Check that it\'s complete and valid.', 'error');
       return;
     }
 
-    // Use onload/onerror instead of assuming success, and only reveal
-    // the image/link once the browser confirms it actually decoded.
+    const objectUrl = URL.createObjectURL(blob);
+    currentImageObjectUrl = objectUrl;
+
     imageElement.onload = function () {
       imageElement.style.display = 'inline';
-      downloadLink.href = base64Input;
+      downloadLink.href = objectUrl;
+      const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+      downloadLink.download = `converted-image.${ext}`;
       downloadLink.style.display = 'inline';
-      setBase64ToImageStatus('Image converted successfully.', 'ok');
+      setBase64ToImageStatus(`Image converted successfully (${(blob.size / 1024).toFixed(1)} KB).`, 'ok');
     };
     imageElement.onerror = function () {
       imageElement.style.display = 'none';
       downloadLink.style.display = 'none';
+      URL.revokeObjectURL(objectUrl);
+      currentImageObjectUrl = null;
       setBase64ToImageStatus('Could not decode this Base64 string as an image. Check that it\'s complete and valid.', 'error');
     };
 
-    imageElement.src = base64Input;
+    // Using an object URL instead of the raw data: URL keeps the <img>
+    // and the download link from each holding their own multi-megabyte
+    // string in memory/DOM attributes.
+    imageElement.src = objectUrl;
   }
 
   // Function to generate SHA256 hash
@@ -550,6 +616,8 @@
   }
 
   // Function to convert the uploaded image to a selected format
+  let currentFormatSourceUrl = null;
+
   function convertImageFormat() {
     const fileInput = document.getElementById("imageFileInput");
     const formatSelect = document.getElementById("imageFormatSelect");
@@ -562,34 +630,54 @@
     }
 
     const file = fileInput.files[0];
-    const reader = new FileReader();
 
-    reader.onload = function (e) {
-      const img = new Image();
-      img.onload = function () {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
+    if (currentFormatSourceUrl) {
+      URL.revokeObjectURL(currentFormatSourceUrl);
+      currentFormatSourceUrl = null;
+    }
 
-        const selectedFormat = formatSelect.value;
-        const imageDataURL = canvas.toDataURL(selectedFormat);
+    // Use an object URL instead of FileReader+data URL — faster and
+    // avoids holding a huge base64 string for large/high-res images.
+    const objectUrl = URL.createObjectURL(file);
+    currentFormatSourceUrl = objectUrl;
 
-        downloadLink.href = imageDataURL;
-        const extension = selectedFormat.split("/")[1];
-        downloadLink.download = `converted-image.${extension}`;
-        downloadLink.style.display = "inline-block";
-      };
-      img.onerror = function () {
-        alert("Could not load that file as an image.");
-      };
-      img.src = e.target.result;
+    const img = new Image();
+    img.onload = function () {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+
+      const selectedFormat = formatSelect.value;
+      let imageDataURL;
+      try {
+        imageDataURL = canvas.toDataURL(selectedFormat);
+      } catch (err) {
+        alert("This browser could not export to the selected format.");
+        return;
+      }
+
+      // Browsers that don't support a given export format (commonly BMP
+      // and TIFF) silently fall back to PNG instead of throwing — warn
+      // the user so it's not mistaken for a bug.
+      if (!imageDataURL.startsWith(`data:${selectedFormat}`)) {
+        alert("Your browser doesn't support exporting to that format directly, so the result was saved as PNG instead.");
+      }
+
+      downloadLink.href = imageDataURL;
+      const extension = imageDataURL.substring(5, imageDataURL.indexOf(';')).split('/')[1] || 'png';
+      downloadLink.download = `converted-image.${extension}`;
+      downloadLink.style.display = "inline-block";
+
+      URL.revokeObjectURL(objectUrl);
+      currentFormatSourceUrl = null;
     };
-    reader.onerror = function () {
-      alert("Failed to read the selected file.");
+    img.onerror = function () {
+      alert("Could not load that file as an image.");
+      URL.revokeObjectURL(objectUrl);
+      currentFormatSourceUrl = null;
     };
-
-    reader.readAsDataURL(file);
+    img.src = objectUrl;
   }
 
   function convertMarkdown() {
