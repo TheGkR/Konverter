@@ -1,4 +1,5 @@
 # Konverter
+A completely on device conversion tool no backend or servers.
 A Web base Converter with Converters Such As:
 
 #### CSV <---> JSON
