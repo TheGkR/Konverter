@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f766e">
-<title>Konverter</title>
+<title>Konverter · Free online converters and tools</title>
+<meta name="description" content="Konverter is a free, private collection of converters and everyday tools for data, text, images, PDFs, colors, numbers, and dates. Everything runs in your browser.">
 <link rel="icon" type="image/png" href="Assets/fav1.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -49,6 +50,13 @@ img.pv{max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--
 iframe{width:100%;height:300px;border:1px solid var(--line);border-radius:8px;background:#fff}
 input[type=date],input[type=datetime-local]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px;min-height:44px}
 mark{background:#f5c54299;color:inherit;border-radius:3px}
+input[type=search]{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
+#navsearch{width:calc(100% - 16px);margin:0 8px 6px}
+.hero{font-size:clamp(28px,5vw,40px);line-height:1.15;margin:0 0 12px}.lead{font-size:17px;max-width:60ch}
+.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}.feats .card{margin:0}.feats h3{margin:0 0 6px;font-size:16px}.feats p{margin:0;color:var(--mut);font-size:14px}
+h2{font-size:20px}.gh{font-size:13px;color:var(--mut);font-weight:500;margin:22px 0 8px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.tile{display:flex;flex-direction:column;gap:4px;padding:14px;background:var(--surf);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);text-decoration:none}.tile:hover{border-color:var(--acc)}.tile span{font-size:13px;color:var(--mut);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 input[type=color]{width:46px;height:40px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 .top{display:flex;align-items:center;justify-content:space-between}
 .top .brand{margin:0 8px 0 8px}
@@ -59,6 +67,7 @@ body{font-size:16px}
 .app{display:block}
 nav{position:sticky;top:0;z-index:5;height:auto;overflow:visible;border:0;border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top,0px)) 0 10px}
 .top{padding:0 14px}.top .brand{margin:0;font-size:18px}
+#navsearch{width:calc(100% - 28px);margin:10px 14px 0;min-height:44px}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:10px 14px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .chips::-webkit-scrollbar{display:none}
 nav h3{display:none}
@@ -365,7 +374,7 @@ init(){const run=()=>{const w=$("dm").value==="w",sp=s=>w?s.split(/(\s+)/):s.spl
  $("dr").innerHTML=o};
  ["da","db","dm"].forEach(x=>$(x).oninput=run)}},
 
-{id:"dates",g:"Dates and money",n:"Date calculator",d:"Find the gap between two dates, an age, or the date a number of days away.",
+{id:"dates",g:"Dates and time",n:"Date calculator",d:"Find the gap between two dates, an age, or the date a number of days away.",
 ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="d1">From (or birth date)</label><input type="date" id="d1"></div><div class="grow"><label for="d2">To</label><input type="date" id="d2"></div></div><div id="dout"></div><label for="dd">Days to add or subtract from the From date</label><input type="number" id="dd" value="30"><div id="dadd"></div></div>`,
 init(){$("d2").value=new Date().toLocaleDateString("en-CA");
  const run=()=>{const a=$("d1").value,b=$("d2").value,o=$("dout");o.innerHTML="";
@@ -374,7 +383,7 @@ init(){$("d2").value=new Date().toLocaleDateString("en-CA");
   const n=parseInt($("dd").value);$("dadd").innerHTML="";if(a&&!isNaN(n)){const d=new Date(a+"T00:00");d.setDate(d.getDate()+n);$("dadd").innerHTML=kv([["Result",d.toDateString()]])}};
  ["d1","d2","dd"].forEach(x=>$(x).oninput=run);run()}},
 
-{id:"timezone",g:"Dates and money",n:"Time zone converter",d:"Convert a date and time from one time zone to another.",
+{id:"timezone",g:"Dates and time",n:"Time zone converter",d:"Convert a date and time from one time zone to another.",
 ui:()=>`<div class="card"><label for="tz0">Date and time</label><input type="datetime-local" id="tz0"><div class="row"><div class="grow"><label for="tz1">From</label><select id="tz1"></select></div><div class="grow"><label for="tz2">To</label><select id="tz2"></select></div></div><div id="tzo"></div></div>`,
 init(){const me=Intl.DateTimeFormat().resolvedOptions().timeZone,Z=Intl.supportedValuesOf?Intl.supportedValuesOf("timeZone"):[me];if(!Z.includes("UTC"))Z.unshift("UTC");
  for(const s of["tz1","tz2"])$(s).innerHTML=Z.map(z=>`<option>${z}</option>`).join("");
@@ -384,14 +393,6 @@ init(){const me=Intl.DateTimeFormat().resolvedOptions().timeZone,Z=Intl.supporte
   const g=Date.parse(v+":00Z");let u=g-off(new Date(g),$("tz1").value);u=g-off(new Date(u),$("tz1").value);
   $("tzo").innerHTML=kv([["Converted",new Intl.DateTimeFormat("en-GB",{timeZone:$("tz2").value,dateStyle:"full",timeStyle:"long"}).format(u)],["UTC",new Date(u).toISOString()]])};
  ["tz0","tz1","tz2"].forEach(x=>$(x).oninput=run);run()}},
-
-{id:"currency",g:"Dates and money",n:"Currency converter",d:"Convert currencies using daily European Central Bank rates from frankfurter.app. Needs an internet connection.",
-ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="ca">Amount</label><input type="number" id="ca" value="100" step="any"></div><div class="grow"><label for="cf">From</label><select id="cf"></select></div><div class="grow"><label for="ct">To</label><select id="ct"></select></div></div><div class="err" id="ec2"></div><div id="co2"></div><div class="note" id="cn"></div></div>`,
-async init(){try{const r=await fetch("https://api.frankfurter.app/currencies");if(!r.ok)throw 0;const o=Object.entries(await r.json()).map(([k,v])=>`<option value="${k}">${k} – ${esc(v)}</option>`).join("");$("cf").innerHTML=o;$("ct").innerHTML=o;$("cf").value="USD";$("ct").value="INR"}catch{$("ec2").textContent="Could not load currencies. Check your connection and reload.";return}
- let tk=0;const run=async()=>{const a=parseFloat($("ca").value),f=$("cf").value,t=$("ct").value,my=++tk;if(isNaN(a)){$("co2").innerHTML="";return}
-  if(f===t){$("co2").innerHTML=kv([[t,fmtNum(a)]]);return}
-  try{const r=await fetch(`https://api.frankfurter.app/latest?amount=${a}&from=${f}&to=${t}`);if(!r.ok)throw 0;const d=await r.json();if(my!==tk)return;$("ec2").textContent="";$("co2").innerHTML=kv([[t,fmtNum(d.rates[t])]]);$("cn").textContent="Rates from "+d.date}catch{$("ec2").textContent="Could not fetch the rate. Try again."}};
- ["ca","cf","ct"].forEach(x=>$(x).oninput=run);run()}},
 
 {id:"contrast",g:"Color and hash",n:"Contrast checker",d:"Check text and background colors against WCAG contrast levels.",
 ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="k1">Text color</label><input type="color" id="k1" value="#1d2024"></div><div class="grow"><label for="k2">Background</label><input type="color" id="k2" value="#ffffff"></div></div><div id="ks" style="margin:14px 0;padding:16px;border-radius:8px;border:1px solid var(--line);font-size:18px">The quick brown fox jumps over the lazy dog.</div><div id="ko"></div></div>`,
@@ -494,7 +495,7 @@ init(){let url="";const show=()=>{if(!url)return;const full=$("fm").value==="r"?
 
 /* ---------- registry, nav, routing ---------- */
 const TOOLS=[...TEXT_TOOLS.map(t=>({...t,ui:()=>textToolUI(t),init:()=>textToolInit(t)})),...CUSTOM];
-const ORDER=["Data","Code","Text","Images","Generators","Color and hash","Numbers","Dates and money"];
+const ORDER=["Data","Code","Text","Images","Generators","Color and hash","Numbers","Dates and time"];
 
 function copyText(text,btn){
   const done=()=>{const o=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=o,1200)};
@@ -505,14 +506,33 @@ document.addEventListener("click",e=>{
   if(b.dataset.t)copyText($(b.dataset.t).value,b);
   else copyText(b.parentElement.querySelector("code").textContent,b)});
 
+let navQ="",curTool="";
+function navList(){
+  const q=navQ.trim().toLowerCase().split(/\s+/).filter(Boolean),hit=t=>q.every(w=>(t.n+" "+t.d+" "+t.g+" "+t.id).toLowerCase().includes(w));
+  const h=ORDER.map(g=>{const l=TOOLS.filter(t=>t.g===g&&hit(t));return l.length?`<h3>${g}</h3>`+l.map(t=>`<a href="#${t.id}" class="${t.id===curTool?"on":""}">${esc(t.n)}</a>`).join(""):""}).join("");
+  $("navchips").innerHTML=(h?(q.length?"":`<a href="#home" class="${curTool==="home"?"on":""}">Home</a>`)+h:`<div class="note" style="padding:0 8px">No converters match “${esc(navQ.trim())}”.</div>`);
+  const on=document.querySelector("nav a.on");if(on&&matchMedia("(max-width:760px)").matches)on.scrollIntoView({inline:"center",block:"nearest"})}
 function renderNav(cur){
-  $("nav").innerHTML=`<div class="top"><div class="brand">Konverter</div><button class="ghost" id="theme" aria-label="Switch theme">Theme</button></div><div class="chips">`+ORDER.map(g=>`<h3>${g}</h3>`+TOOLS.filter(t=>t.g===g).map(t=>`<a href="#${t.id}" class="${t.id===cur?"on":""}">${esc(t.n)}</a>`).join("")).join("")+`</div>`;
-  const on=document.querySelector("nav a.on");if(on&&matchMedia("(max-width:760px)").matches)on.scrollIntoView({inline:"center",block:"nearest"});
-  $("theme").onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;r.dataset.theme=dark?"light":"dark"}}
+  if(!$("navsearch")){
+    $("nav").innerHTML=`<div class="top"><div class="brand">Konverter</div><button class="ghost" id="theme" aria-label="Switch theme">Theme</button></div><input type="search" id="navsearch" placeholder="Search converters (press /)" aria-label="Search converters" autocomplete="off"><div class="chips" id="navchips"></div>`;
+    $("theme").onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;r.dataset.theme=dark?"light":"dark"};
+    $("navsearch").oninput=e=>{navQ=e.target.value;navList()};
+    $("navsearch").onkeydown=e=>{if(e.key==="Enter"){const a=document.querySelector("#navchips a");if(a){location.hash=a.getAttribute("href");$("navsearch").blur()}}else if(e.key==="Escape"){e.target.value="";navQ="";navList()}};
+    document.addEventListener("keydown",e=>{if(e.key==="/"&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)){e.preventDefault();$("navsearch").focus()}})}
+  curTool=cur;navList()}
+const FOOT=`<footer class="foot"><a href="https://goutham.live">© 2026-27 goutham.live</a></footer>`;
+function homeUI(){
+  const F=[["Private by design","Files and text are processed in your browser. Nothing you convert is uploaded to a server."],["Free and instant","No sign-up and no limits. Most results appear as you type."],["Works everywhere","Built for phones, tablets, and desktops, in light or dark mode."]];
+  return `<h1 class="hero">Convert anything, right in your browser.</h1><p class="sub lead">Konverter is a free collection of ${TOOLS.length} converters and everyday tools for data, text, images, PDFs, colors, numbers, and dates.</p>
+  <div class="row" style="margin:0 0 24px"><button id="hs">Search tools</button></div>
+  <div class="feats">${F.map(([a,b])=>`<div class="card"><h3>${a}</h3><p>${b}</p></div>`).join("")}</div>
+  <div class="card"><h2 style="margin-top:0">About Konverter</h2><p>Konverter is a toolbox for the small jobs that come up every day: turning a CSV into JSON, compressing an image, encoding Base64, reading a QR code, checking a color’s contrast, and much more.</p><p style="margin-bottom:0">Everything runs locally with JavaScript, so your files and text stay on your device. A few tools (YAML, QR codes, barcodes, and PDFs) download an open-source library the first time you use them, but your data is never sent anywhere. Made by <a href="https://github.com/TheGkR">TheGkR</a> on GitHub.</p></div>
+  <h2>All tools</h2>`+ORDER.map(g=>`<h3 class="gh">${g}</h3><div class="tiles">`+TOOLS.filter(t=>t.g===g).map(t=>`<a class="tile" href="#${t.id}"><strong>${esc(t.n)}</strong><span>${esc(t.d)}</span></a>`).join("")+`</div>`).join("")}
 function route(){
-  const t=TOOLS.find(x=>x.id===location.hash.slice(1))||TOOLS[0];
+  const id=location.hash.slice(1),t=TOOLS.find(x=>x.id===id);
+  if(!t){renderNav("home");document.title="Konverter · Free online converters and tools";$("main").innerHTML=homeUI()+FOOT;$("hs").onclick=()=>$("navsearch").focus();window.scrollTo(0,0);return}
   renderNav(t.id);document.title=t.n+" · Konverter";
-  $("main").innerHTML=`<h1>${esc(t.n)}</h1><p class="sub">${esc(t.d)}</p>`+t.ui()+`<footer class="foot"><a href="https://goutham.live">© 2026-27 goutham.live</a></footer>`;t.init();window.scrollTo(0,0)}
+  $("main").innerHTML=`<h1>${esc(t.n)}</h1><p class="sub">${esc(t.d)}</p>`+t.ui()+FOOT;t.init();window.scrollTo(0,0)}
 addEventListener("hashchange",route);route();
 </script>
 </body>
