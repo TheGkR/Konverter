@@ -130,6 +130,14 @@ const cap=w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
 function bigIn(s,base){s=s.trim().replace(/[\s_]/g,"").replace(/^0[xbo]/i,"");if(!s)return "";
   const p={2:"0b",8:"0o",10:"",16:"0x"}[base];try{return BigInt(p+s)}catch{throw new Error("That is not a valid base-"+base+" number.")}}
 
+/* ---------- loaders and helpers ---------- */
+const _ls={};const loadLib=u=>_ls[u]||(_ls[u]=new Promise((ok,no)=>{const s=document.createElement("script");s.src=u;s.onload=ok;s.onerror=()=>{delete _ls[u];no(new Error("Could not load a required library. Check your connection and try again."))};document.head.appendChild(s)}));
+const PDFLIB="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",JSQR="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js",JSB="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js",PDFJS="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/";
+async function pdfjs(){await loadLib(PDFJS+"pdf.min.js");if(!pdfjsLib.GlobalWorkerOptions.workerSrc){const t=await(await fetch(PDFJS+"pdf.worker.min.js")).text();pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([t],{type:"text/javascript"}))}return pdfjsLib}
+const loadImg=f=>new Promise((ok,no)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>{URL.revokeObjectURL(u);no(new Error("Could not read "+f.name+" as an image."))};i.src=u});
+const toBlob=(c,t,q)=>new Promise(r=>c.toBlob(r,t,q));
+const mkLink=(b,n,t)=>{const a=document.createElement("a");a.className="btn";a.href=URL.createObjectURL(b);a.download=n;a.textContent=t||"Download";return a};
+
 /* ---------- helpers for added tools ---------- */
 const Y=()=>{if(typeof jsyaml==="undefined")throw new Error("The YAML library did not load. Reload the page.");return jsyaml};
 function xml2o(n){const o={};if(n.attributes)for(const a of n.attributes)o["@"+a.name]=a.value;let t="";for(const c of n.childNodes){if(c.nodeType===1){const v=xml2o(c);if(o[c.nodeName]===undefined)o[c.nodeName]=v;else{if(!Array.isArray(o[c.nodeName]))o[c.nodeName]=[o[c.nodeName]];o[c.nodeName].push(v)}}else if(c.nodeType===3||c.nodeType===4)t+=c.nodeValue}t=t.trim();if(!Object.keys(o).length)return t;if(t)o["#text"]=t;return o}
@@ -263,8 +271,8 @@ init(){
     const html=marked.parse(v);$("hs").value=html;
     $("pv").srcdoc=`<style>body{font:15px/1.6 system-ui,sans-serif;color:#222;margin:14px}pre,code{background:#f1f1f1;border-radius:4px}pre{padding:10px;overflow:auto}code{padding:1px 4px}img{max-width:100%}blockquote{border-left:3px solid #ccc;margin:0;padding-left:12px;color:#555}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style>`+html}}},
 
-{id:"color",g:"Color and hash",n:"Color converter",d:"Convert between HEX, RGB, and HSL. Type any of the three, or pick a color.",
-ui:()=>`<div class="card"><div class="swatch" id="sw"></div><label for="ci">Color (for example #34A7E0, rgb(52,167,224), hsl(201,74%,55%))</label>
+{id:"color",g:"Color and hash",n:"Color converter",d:"Convert between HEX, RGB, HSL, HSV, and CMYK. Type any of them, or pick a color.",
+ui:()=>`<div class="card"><div class="swatch" id="sw"></div><label for="ci">Color (for example #34A7E0, rgb(52,167,224), hsl(201,74%,55%), cmyk(77%,26%,0%,12%))</label>
   <div class="row" style="margin-top:0"><input type="text" id="ci" class="grow" value="#34A7E0" spellcheck="false"><input type="color" id="cp" value="#34a7e0" aria-label="Pick a color"></div>
   <div class="err" id="ec"></div><div id="co"></div></div>`,
 init(){
@@ -273,12 +281,12 @@ init(){
   const fromHsl=(h,s,l)=>{s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return[f(0),f(8),f(4)].map(v=>Math.round(v*255))};
   const parse=s=>{s=s.trim().toLowerCase();let m=s.match(/^#?([0-9a-f]+)$/);
     if(m&&[3,4,6,8].includes(m[1].length)){let h=m[1];if(h.length<5)h=[...h].map(c=>c+c).join("");return[0,2,4].map(i=>parseInt(h.substr(i,2),16))}
-    const n=s.replace(/^(rgb|hsl)a?\(|\)|%|deg/g,"").split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
-    if(n.length>=3&&n.slice(0,3).every(x=>!isNaN(x))){if(s.startsWith("hsl")){if(n[1]>100||n[2]>100)throw 0;return fromHsl(n[0],n[1],n[2])}if(n.slice(0,3).every(x=>x>=0&&x<=255))return n.slice(0,3).map(Math.round)}
+    const n=s.replace(/^(rgb|hsl|hsv|cmyk)a?\(|\)|%|deg/g,"").split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
+    if(s.startsWith("cmyk")){if(n.length<4||n.slice(0,4).some(x=>isNaN(x)||x<0||x>100))throw 0;const[cc,mm,yy,kk]=n.map(x=>x/100);return[cc,mm,yy].map(v=>Math.round(255*(1-v)*(1-kk)))}if(s.startsWith("hsv")&&n.length>=3&&n[1]>=0&&n[1]<=100&&n[2]>=0&&n[2]<=100){const sv=n[1]/100,vv=n[2]/100,l=vv*(1-sv/2);return fromHsl(n[0],(l&&l<1?(vv-l)/Math.min(l,1-l):0)*100,l*100)}if(n.length>=3&&n.slice(0,3).every(x=>!isNaN(x))){if(s.startsWith("hsl")){if(n[1]>100||n[2]>100)throw 0;return fromHsl(n[0],n[1],n[2])}if(n.slice(0,3).every(x=>x>=0&&x<=255))return n.slice(0,3).map(Math.round)}
     throw 0};
   const run=()=>{try{const[r,g,b]=parse($("ci").value),hex="#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase(),[h,s,l]=toHsl(r,g,b);
     $("ec").textContent="";$("sw").style.background=hex;$("cp").value=hex.toLowerCase();
-    $("co").innerHTML=kv([["HEX",hex],["RGB",`rgb(${r}, ${g}, ${b})`],["HSL",`hsl(${h}, ${s}%, ${l}%)`]])}
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b),k=1-mx/255,P=v=>Math.round(v*100),cm=v=>k>=1?0:(1-v/255-k)/(1-k);$("co").innerHTML=kv([["HEX",hex],["RGB",`rgb(${r}, ${g}, ${b})`],["HSL",`hsl(${h}, ${s}%, ${l}%)`],["HSV",`hsv(${h}, ${P(mx?(mx-mn)/mx:0)}%, ${P(mx/255)}%)`],["CMYK",`cmyk(${P(cm(r))}%, ${P(cm(g))}%, ${P(cm(b))}%, ${P(k)}%)`]])}
     catch{$("ec").textContent="Could not read that color. Use HEX, rgb(r, g, b), or hsl(h, s%, l%).";$("co").innerHTML=""}};
   $("ci").oninput=run;$("cp").oninput=()=>{$("ci").value=$("cp").value;run()};run()}},
 
@@ -413,7 +421,75 @@ init(){$("go4").onclick=()=>{const f=$("f4").files[0],e=$("e4");e.textContent=""
 ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="pa">A (percent or first value)</label><input type="number" id="pa" value="15" step="any"></div><div class="grow"><label for="pb">B (amount or second value)</label><input type="number" id="pb" value="200" step="any"></div><div class="grow"><label for="pp">People (to split)</label><input type="number" id="pp" value="2" min="1"></div></div><div id="po"></div></div>`,
 init(){const run=()=>{const a=parseFloat($("pa").value),b=parseFloat($("pb").value),n=Math.max(1,parseInt($("pp").value)||1);if(isNaN(a)||isNaN(b)){$("po").innerHTML="";return}
  const f=x=>fmtNum(+x.toFixed(4));$("po").innerHTML=kv([["A% of B",f(a*b/100)],["A is % of B",b?f(a/b*100)+"%":"n/a"],["Change A → B",a?f((b-a)/Math.abs(a)*100)+"%":"n/a"],["B − A%",f(b*(1-a/100))],["B + A%",f(b*(1+a/100))],["Split B + A%",f(b*(1+a/100)/n)+" each"]])};
- ["pa","pb","pp"].forEach(x=>$(x).oninput=run);run()}}
+ ["pa","pb","pp"].forEach(x=>$(x).oninput=run);run()}},
+{id:"image-pdf",g:"Images",n:"Images to PDF",d:"Combine one or more images into a single PDF, one image per page. Transparent areas become white.",
+ui:()=>`<div class="card"><label for="fp">Choose images (in page order)</label><input type="file" id="fp" accept="image/*" multiple><label for="ps">Page size</label><select id="ps"><option value="fit">Fit to each image</option><option value="a4">A4 portrait</option><option value="a4l">A4 landscape</option></select><div class="row"><button id="gp2">Create PDF</button></div><div class="err" id="ep"></div><div class="note" id="np"></div><div class="row" id="dp"></div></div>`,
+init(){$("gp2").onclick=async()=>{const fs=[...$("fp").files],e=$("ep");e.textContent="";$("dp").innerHTML="";if(!fs.length){e.textContent="Choose at least one image.";return}
+ try{$("np").textContent="Creating PDF…";await loadLib(PDFLIB);const doc=await PDFLib.PDFDocument.create();
+  for(const f of fs){const img=await loadImg(f),w=img.naturalWidth||300,h=img.naturalHeight||150,c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(img,0,0);
+   const pic=await doc.embedJpg(new Uint8Array(await(await toBlob(c,"image/jpeg",.92)).arrayBuffer())),m=$("ps").value;let pw=w*.75,ph=h*.75,dw=pw,dh=ph,dx=0,dy=0;
+   if(m!=="fit"){[pw,ph]=m==="a4"?[595,842]:[842,595];const s=Math.min((pw-48)/w,(ph-48)/h);dw=w*s;dh=h*s;dx=(pw-dw)/2;dy=(ph-dh)/2}
+   doc.addPage([pw,ph]).drawImage(pic,{x:dx,y:dy,width:dw,height:dh})}
+  const b=new Blob([await doc.save()],{type:"application/pdf"});$("np").textContent=`${fs.length} page${fs.length>1?"s":""}, ${fmtSize(b.size)}.`;$("dp").appendChild(mkLink(b,"images.pdf","Download PDF"))}
+ catch(err){$("np").textContent="";e.textContent=err.message||"Could not create the PDF."}}}},
+
+{id:"pdf-images",g:"Images",n:"PDF to images",d:"Turn each page of a PDF into a PNG or JPG. The file stays on your device.",
+ui:()=>`<div class="card"><label for="fq">Choose a PDF</label><input type="file" id="fq" accept="application/pdf"><div class="row"><div class="grow"><label for="sq">Quality</label><select id="sq"><option value="1">Standard (1×)</option><option value="2" selected>High (2×)</option><option value="3">Very high (3×)</option></select></div><div class="grow"><label for="tq">Format</label><select id="tq"><option value="image/png">PNG</option><option value="image/jpeg">JPG</option></select></div></div><div class="row"><button id="gq">Convert pages</button></div><div class="err" id="eq2"></div><div class="note" id="nq"></div><div id="oq"></div></div>`,
+init(){$("gq").onclick=async()=>{const f=$("fq").files[0],e=$("eq2"),o=$("oq");e.textContent="";o.innerHTML="";if(!f){e.textContent="Choose a PDF first.";return}
+ try{$("nq").textContent="Loading…";const lib=await pdfjs(),pdf=await lib.getDocument({data:await f.arrayBuffer()}).promise,type=$("tq").value,ext=type==="image/png"?"png":"jpg",n=Math.min(pdf.numPages,100);
+  for(let i=1;i<=n;i++){$("nq").textContent=`Page ${i} of ${n}…`;const pg=await pdf.getPage(i),vp=pg.getViewport({scale:+$("sq").value}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);await pg.render({canvasContext:x,viewport:vp}).promise;
+   const b=await toBlob(c,type,.92),d=document.createElement("div");d.className="card";const im=new Image();im.className="pv";im.alt="Page "+i;im.src=URL.createObjectURL(b);d.appendChild(im);const r=document.createElement("div");r.className="row";r.appendChild(mkLink(b,`page-${i}.${ext}`,`Download page ${i}`));d.appendChild(r);o.appendChild(d)}
+  $("nq").textContent=`Done. ${n} page${n>1?"s":""}`+(pdf.numPages>n?` (first 100 of ${pdf.numPages}).`:".")}
+ catch(err){$("nq").textContent="";e.textContent=err.name==="PasswordException"?"This PDF is password protected.":(err.message||"Could not read this PDF.")}}}},
+
+{id:"svg-png",g:"Images",n:"SVG to PNG",d:"Paste SVG code or choose an SVG file and export it as a PNG at any size.",
+ui:()=>`<div class="card"><label for="ft">SVG file</label><input type="file" id="ft" accept=".svg,image/svg+xml"><label for="st">Or paste SVG code</label><textarea id="st" spellcheck="false"></textarea><div class="row"><div class="grow"><label for="wt">Width (px)</label><input type="number" id="wt" value="1024" min="1" max="8000"></div><div class="grow"><label for="bt">Background</label><select id="bt"><option value="">Transparent</option><option value="#ffffff">White</option></select></div></div><div class="row"><button id="gt2">Convert</button></div><div class="err" id="et"></div><img class="pv" id="pt" alt="PNG preview" hidden><div class="row"><a class="btn" id="dt" style="display:none">Download PNG</a></div></div>`,
+init(){$("ft").onchange=async()=>{const f=$("ft").files[0];if(f)$("st").value=await f.text()};
+ $("gt2").onclick=()=>{const t=$("st").value.trim(),e=$("et");e.textContent="";if(!/<svg[\s>]/i.test(t)){e.textContent="Paste SVG code or choose an SVG file first.";return}
+  const src=/xmlns=/.test(t)?t:t.replace(/<svg/i,'<svg xmlns="http://www.w3.org/2000/svg"'),u=URL.createObjectURL(new Blob([src],{type:"image/svg+xml"})),img=new Image();
+  img.onerror=()=>{URL.revokeObjectURL(u);e.textContent="Could not render this SVG. Check that the code is valid."};
+  img.onload=async()=>{URL.revokeObjectURL(u);const w=Math.min(8000,Math.max(1,parseInt($("wt").value)||1024)),ar=img.naturalWidth&&img.naturalHeight?img.naturalHeight/img.naturalWidth:1,h=Math.round(w*ar),c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");if($("bt").value){x.fillStyle=$("bt").value;x.fillRect(0,0,w,h)}x.drawImage(img,0,0,w,h);
+   const b=await toBlob(c,"image/png"),p=$("pt");if(p._u)URL.revokeObjectURL(p._u);p._u=URL.createObjectURL(b);p.src=p._u;p.hidden=false;download($("dt"),b,"image.png")};img.src=u}}},
+
+{id:"favicon",g:"Images",n:"Favicon generator",d:"Make favicon PNGs in common sizes, plus a favicon.ico, from one image.",
+ui:()=>`<div class="card"><label for="fv">Choose an image (512px or larger works best)</label><input type="file" id="fv" accept="image/*"><div class="err" id="ev"></div><div class="row" id="ov"></div><div id="sv"></div></div>`,
+init(){$("fv").onchange=async()=>{const f=$("fv").files[0],e=$("ev"),o=$("ov");e.textContent="";o.innerHTML="";$("sv").innerHTML="";if(!f)return;
+ try{const img=await loadImg(f),S=[16,32,48,64,96,180,192,512],iw=img.naturalWidth||1,ih=img.naturalHeight||1,side=Math.min(iw,ih),sx=(iw-side)/2,sy=(ih-side)/2,out={};
+  for(const s of S){const c=document.createElement("canvas");c.width=c.height=s;c.getContext("2d").drawImage(img,sx,sy,side,side,0,0,s,s);out[s]=await toBlob(c,"image/png");const d=document.createElement("div");d.style.textAlign="center";const im=new Image(),z=Math.min(s,96);im.src=URL.createObjectURL(out[s]);im.alt=s+"px";im.style.cssText=`width:${z}px;height:${z}px;display:block;margin:0 auto 6px`;d.appendChild(im);const a=mkLink(out[s],`favicon-${s}.png`,s+"px");a.style.padding="5px 10px";d.appendChild(a);o.appendChild(d)}
+  const ic=[16,32,48],bufs=await Promise.all(ic.map(s=>out[s].arrayBuffer())),hd=new DataView(new ArrayBuffer(6+16*ic.length));hd.setUint16(2,1,true);hd.setUint16(4,ic.length,true);let off=6+16*ic.length;
+  ic.forEach((s,i)=>{const p=6+16*i;hd.setUint8(p,s);hd.setUint8(p+1,s);hd.setUint16(p+4,1,true);hd.setUint16(p+6,32,true);hd.setUint32(p+8,bufs[i].byteLength,true);hd.setUint32(p+12,off,true);off+=bufs[i].byteLength});
+  const r=document.createElement("div");r.style.width="100%";r.appendChild(mkLink(new Blob([hd.buffer,...bufs],{type:"image/x-icon"}),"favicon.ico","Download favicon.ico"));o.appendChild(r);
+  $("sv").innerHTML=kv([["HTML",'<link rel="icon" href="/favicon.ico" sizes="48x48"> <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"> <link rel="apple-touch-icon" href="/favicon-180.png">']])}
+ catch(err){e.textContent=err.message}}}},
+
+{id:"palette",g:"Images",n:"Image color palette",d:"Pull the dominant colors out of an image.",
+ui:()=>`<div class="card"><label for="fc">Choose an image</label><input type="file" id="fc" accept="image/*"><div class="err" id="ec3"></div><img class="pv" id="pc" alt="" hidden><div id="oc" style="margin-top:12px"></div></div>`,
+init(){$("fc").onchange=async()=>{const f=$("fc").files[0],e=$("ec3");e.textContent="";$("oc").innerHTML="";if(!f)return;
+ try{const img=await loadImg(f),iw=img.naturalWidth||100,ih=img.naturalHeight||100,sc=Math.min(1,100/Math.max(iw,ih)),w=Math.max(1,Math.round(iw*sc)),h=Math.max(1,Math.round(ih*sc)),c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(img,0,0,w,h);
+  const d=x.getImageData(0,0,w,h).data,B={};for(let i=0;i<d.length;i+=4){if(d[i+3]<128)continue;const k=(d[i]>>4)*256+(d[i+1]>>4)*16+(d[i+2]>>4),o=B[k]||(B[k]=[0,0,0,0]);o[0]+=d[i];o[1]+=d[i+1];o[2]+=d[i+2];o[3]++}
+  const top=[];for(const o of Object.values(B).sort((a,b)=>b[3]-a[3])){const q=[o[0],o[1],o[2]].map(v=>Math.round(v/o[3]));if(top.every(t=>Math.hypot(t[0]-q[0],t[1]-q[1],t[2]-q[2])>48))top.push(q);if(top.length===8)break}
+  const hex=top.map(t=>"#"+t.map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase()),p=$("pc");p.src=URL.createObjectURL(f);p.hidden=false;
+  $("oc").innerHTML=`<div style="display:flex;height:56px;border-radius:8px;overflow:hidden;margin-bottom:12px">${hex.map(h=>`<div style="flex:1;background:${h}"></div>`).join("")}</div>`+kv(hex.map((h,i)=>["Color "+(i+1),h]))}
+ catch(err){e.textContent=err.message}}}},
+
+{id:"barcode",g:"Generators",n:"Barcode generator",d:"Create common barcode types and save them as PNG.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="bv">Value</label><input type="text" id="bv" value="123456789012" spellcheck="false"></div><div class="grow"><label for="bf">Format</label><select id="bf"><option value="CODE128">Code 128 (any text)</option><option value="CODE39">Code 39</option><option value="EAN13">EAN-13 (12 or 13 digits)</option><option value="EAN8">EAN-8 (7 or 8 digits)</option><option value="UPC">UPC-A (11 or 12 digits)</option><option value="ITF14">ITF-14 (13 or 14 digits)</option></select></div></div><div class="err" id="eb"></div><canvas id="cb" style="max-width:100%;height:auto;margin-top:12px;background:#fff;border-radius:8px;display:none"></canvas><div class="row"><a class="btn" id="db2" style="display:none">Download PNG</a></div></div>`,
+init(){const run=async()=>{const e=$("eb"),c=$("cb");e.textContent="";c.style.display="none";$("db2").style.display="none";const v=$("bv").value;if(!v)return;
+ try{await loadLib(JSB);let bad=false;JsBarcode(c,v,{format:$("bf").value,width:3,height:100,margin:16,background:"#ffffff",valid:ok=>{bad=!ok}});if(bad)throw 0;c.style.display="block";c.toBlob(b=>download($("db2"),b,"barcode.png"))}
+ catch(err){c.style.display="none";e.textContent=err&&err.message?err.message:"That value is not valid for this barcode format."}};
+ $("bv").oninput=run;$("bf").onchange=run;run()}},
+
+{id:"qr-read",g:"Images",n:"QR code reader",d:"Choose a photo or screenshot of a QR code to read what it contains.",
+ui:()=>`<div class="card"><label for="fr">Choose an image</label><input type="file" id="fr" accept="image/*"><div class="err" id="er"></div><img class="pv" id="pr" alt="" hidden><label for="or">Result</label><textarea id="or" readonly style="min-height:90px"></textarea><div class="row"><button data-t="or">Copy result</button></div></div>`,
+init(){$("fr").onchange=async()=>{const f=$("fr").files[0],e=$("er");e.textContent="";$("or").value="";if(!f)return;
+ try{await loadLib(JSQR);const img=await loadImg(f),sc=Math.min(1,1600/Math.max(img.naturalWidth,img.naturalHeight)),w=Math.round(img.naturalWidth*sc),h=Math.round(img.naturalHeight*sc),c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(img,0,0,w,h);
+  $("pr").src=URL.createObjectURL(f);$("pr").hidden=false;const r=jsQR(x.getImageData(0,0,w,h).data,w,h);if(!r)throw new Error("No QR code found. Try a sharper image with the whole code in view.");$("or").value=r.data}
+ catch(err){e.textContent=err.message}}}},
+
+{id:"file-base64",g:"Data",n:"File to Base64",d:"Encode any file as Base64 or a data URL. The file stays on your device.",
+ui:()=>`<div class="card"><label for="fb">Choose a file</label><input type="file" id="fb"><label for="fm">Output</label><select id="fm"><option value="d">Data URL</option><option value="r">Raw Base64</option></select><label for="ob">Result (preview)</label><textarea id="ob" readonly></textarea><div class="note" id="nb"></div><div class="row"><button id="cb2" hidden>Copy full Base64</button></div></div>`,
+init(){let url="";const show=()=>{if(!url)return;const full=$("fm").value==="r"?url.slice(url.indexOf(",")+1):url;$("ob").value=full.length>3000?full.slice(0,3000)+"\n… [preview only]":full;$("nb").textContent="Full string: "+fmtSize(full.length)+(full.length>3000?". Use Copy to get all of it.":"");$("cb2").hidden=false;$("cb2").onclick=()=>copyText(full,$("cb2"))};
+ $("fb").onchange=()=>{const f=$("fb").files[0];if(!f)return;const r=new FileReader();r.onload=()=>{url=r.result;show()};r.onerror=()=>{$("nb").textContent="Could not read that file."};r.readAsDataURL(f)};$("fm").onchange=show}}
 ];
 
 /* ---------- registry, nav, routing ---------- */
