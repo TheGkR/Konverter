@@ -47,6 +47,8 @@ button:hover,.btn:hover{filter:brightness(1.08)}
 .swatch{height:56px;border-radius:8px;border:1px solid var(--line);margin-bottom:12px}
 img.pv{max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--line);margin-top:12px;display:block;background:repeating-conic-gradient(#8883 0 25%,transparent 0 50%) 0 0/16px 16px}
 iframe{width:100%;height:300px;border:1px solid var(--line);border-radius:8px;background:#fff}
+input[type=date],input[type=datetime-local]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px;min-height:44px}
+mark{background:#f5c54299;color:inherit;border-radius:3px}
 input[type=color]{width:46px;height:40px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 .top{display:flex;align-items:center;justify-content:space-between}
 .top .brand{margin:0 8px 0 8px}
@@ -83,6 +85,8 @@ img.pv{max-height:280px}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-md5@0.7.3/build/md5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -126,6 +130,25 @@ const cap=w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
 function bigIn(s,base){s=s.trim().replace(/[\s_]/g,"").replace(/^0[xbo]/i,"");if(!s)return "";
   const p={2:"0b",8:"0o",10:"",16:"0x"}[base];try{return BigInt(p+s)}catch{throw new Error("That is not a valid base-"+base+" number.")}}
 
+/* ---------- helpers for added tools ---------- */
+const Y=()=>{if(typeof jsyaml==="undefined")throw new Error("The YAML library did not load. Reload the page.");return jsyaml};
+function xml2o(n){const o={};if(n.attributes)for(const a of n.attributes)o["@"+a.name]=a.value;let t="";for(const c of n.childNodes){if(c.nodeType===1){const v=xml2o(c);if(o[c.nodeName]===undefined)o[c.nodeName]=v;else{if(!Array.isArray(o[c.nodeName]))o[c.nodeName]=[o[c.nodeName]];o[c.nodeName].push(v)}}else if(c.nodeType===3||c.nodeType===4)t+=c.nodeValue}t=t.trim();if(!Object.keys(o).length)return t;if(t)o["#text"]=t;return o}
+const o2x=(k,v,i="")=>Array.isArray(v)?v.map(x=>o2x(k,x,i)).join(""):(v&&typeof v==="object")?(()=>{const at=Object.keys(v).filter(x=>x[0]==="@").map(x=>` ${x.slice(1)}="${esc(v[x])}"`).join(""),ch=Object.keys(v).filter(x=>x[0]!=="@"&&x!=="#text").map(x=>o2x(x,v[x],i+"  ")).join("");return `${i}<${k}${at}>${v["#text"]!==undefined?esc(v["#text"]):""}${ch?"\n"+ch+i:""}</${k}>\n`})():`${i}<${k}>${esc(v??"")}</${k}>\n`;
+const tsT=(v,i="")=>{if(v===null)return "null";if(Array.isArray(v)){const u=[...new Set(v.map(x=>tsT(x,i)))];return v.length?(u.length>1?`(${u.join(" | ")})`:u[0])+"[]":"unknown[]"}if(typeof v==="object")return "{\n"+Object.entries(v).map(([k,x])=>`${i}  ${/^[A-Za-z_$][\w$]*$/.test(k)?k:JSON.stringify(k)}: ${tsT(x,i+"  ")};`).join("\n")+`\n${i}}`;return typeof v};
+const rot=n=>s=>s.replace(/[a-z]/gi,c=>{const b=c<"a"?65:97;return String.fromCharCode((c.charCodeAt(0)-b+n+26)%26+b)});
+const MC=Object.fromEntries("A .-,B -...,C -.-.,D -..,E .,F ..-.,G --.,H ....,I ..,J .---,K -.-,L .-..,M --,N -.,O ---,P .--.,Q --.-,R .-.,S ...,T -,U ..-,V ...-,W .--,X -..-,Y -.--,Z --..,0 -----,1 .----,2 ..---,3 ...--,4 ....-,5 .....,6 -....,7 --...,8 ---..,9 ----.".split(",").map(x=>x.split(" ")));
+const toR=n=>{n=+n;if(!Number.isInteger(n)||n<1||n>3999)throw new Error("Enter a whole number from 1 to 3999.");return [[1000,"M"],[900,"CM"],[500,"D"],[400,"CD"],[100,"C"],[90,"XC"],[50,"L"],[40,"XL"],[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]].reduce((r,[v,c])=>{while(n>=v){r+=c;n-=v}return r},"")};
+const fromR=s=>{s=s.trim().toUpperCase();if(!/^[MDCLXVI]+$/.test(s))throw new Error("Use the letters I, V, X, L, C, D, M.");const v={I:1,V:5,X:10,L:50,C:100,D:500,M:1000};let t=0;for(let i=0;i<s.length;i++)t+=v[s[i]]<(v[s[i+1]]||0)?-v[s[i]]:v[s[i]];return String(t)};
+const ones="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split(" "),tens="_ _ twenty thirty forty fifty sixty seventy eighty ninety".split(" ");
+const nw=n=>n<20?ones[n]:n<100?tens[Math.floor(n/10)]+(n%10?"-"+ones[n%10]:""):n<1e3?ones[Math.floor(n/100)]+" hundred"+(n%100?" "+nw(n%100):""):[[1e12,"trillion"],[1e9,"billion"],[1e6,"million"],[1e3,"thousand"]].reduce((r,[v,w])=>r||(n>=v?nw(Math.floor(n/v))+" "+w+(n%v?" "+nw(n%v):""):""),"");
+const lines=f=>s=>f(s.split(/\r?\n/)).join("\n");
+const pxr=px=>s=>s.split(/[\s,]+/).filter(Boolean).map(x=>{const n=parseFloat(x);if(isNaN(n))throw new Error(`"${x}" is not a number.`);return px?`${fmtNum(n)}px = ${fmtNum(n/16)}rem`:`${fmtNum(n)}rem = ${fmtNum(n*16)}px`}).join("\n");
+const bits=(s,w)=>{const n=Number(s);if(s.trim()===""||isNaN(n))throw new Error("Enter a number.");const dv=new DataView(new ArrayBuffer(w/8));w===64?dv.setFloat64(0,n):dv.setFloat32(0,n);const by=[...Array(w/8)].map((_,i)=>dv.getUint8(i)),b=by.map(x=>x.toString(2).padStart(8,"0")).join(""),e=w===64?11:8;return `Sign: ${b[0]}\nExponent: ${b.slice(1,1+e)}\nMantissa: ${b.slice(1+e)}\nHex: 0x${by.map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase()}`};
+const cssMin=s=>s.replace(/\/\*[\s\S]*?\*\//g,"").replace(/\s+/g," ").replace(/\s*([{}:;,>])\s*/g,"$1").replace(/;}/g,"}").trim();
+const cssBeaut=s=>{let d=0;return cssMin(s).replace(/\{/g," {\n").replace(/;/g,";\n").replace(/\}/g,"\n}\n").split("\n").map(x=>x.trim()).filter(Boolean).map(l=>{if(l[0]==="}")d--;const o="  ".repeat(Math.max(d,0))+(l.endsWith("{")?l:l.replace(/:\s*/,": "));if(l.endsWith("{"))d++;return o}).join("\n")};
+const htmlMin=s=>s.replace(/<!--[\s\S]*?-->/g,"").replace(/>\s+</g,"><").replace(/\s{2,}/g," ").trim();
+const htmlBeaut=s=>{let d=0;const V=/^<(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr|!)/i;return htmlMin(s).split(/(<[^>]+>)/).filter(x=>x.trim()).map(t=>{t=t.trim();if(/^<\//.test(t))d--;const l="  ".repeat(Math.max(d,0))+t;if(/^<[^\/!][^>]*[^\/]>$/.test(t)&&!V.test(t))d++;return l}).join("\n")};
+
 /* ---------- text-style tools ---------- */
 const TEXT_TOOLS=[
  {id:"csv-json",g:"Data",n:"CSV and JSON",d:"Convert tables between CSV and JSON. Quoted fields and commas inside values are handled.",modes:[["CSV → JSON",csvToJson],["JSON → CSV",jsonToCsv]]},
@@ -137,7 +160,22 @@ const TEXT_TOOLS=[
  {id:"text-case",g:"Text",n:"Text case",d:"Change capitalisation or naming style.",modes:[["UPPER CASE",s=>s.toUpperCase()],["lower case",s=>s.toLowerCase()],["Title Case",s=>s.toLowerCase().replace(/(^|[\s\-_])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase())],["Sentence case",s=>s.toLowerCase().replace(/(^\s*|[.!?]\s+)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase())],["camelCase",caseFn(w=>w.map((x,i)=>i?cap(x):x.toLowerCase()).join(""))],["PascalCase",caseFn(w=>w.map(cap).join(""))],["snake_case",caseFn(w=>w.map(x=>x.toLowerCase()).join("_"))],["kebab-case",caseFn(w=>w.map(x=>x.toLowerCase()).join("-"))]]},
  {id:"text-stats",g:"Text",n:"Word counter",d:"Count words, characters, lines, and estimated reading time.",modes:[["Count",s=>{const w=words(s).length;return `Words: ${w}\nCharacters: ${[...s].length}\nCharacters (no spaces): ${[...s.replace(/\s/g,"")].length}\nLines: ${s?s.split(/\n/).length:0}\nReading time: ${Math.max(w?1:0,Math.round(w/230))} min`}]]},
  {id:"number-base",g:"Numbers",n:"Number bases",d:"Convert whole numbers between decimal, binary, octal, and hex. Prefixes like 0x are accepted.",modes:[["Decimal → Binary",s=>{const n=bigIn(s,10);return n===""?"":n.toString(2)}],["Decimal → Hex",s=>{const n=bigIn(s,10);return n===""?"":n.toString(16).toUpperCase()}],["Decimal → Octal",s=>{const n=bigIn(s,10);return n===""?"":n.toString(8)}],["Binary → Decimal",s=>String(bigIn(s,2))],["Hex → Decimal",s=>String(bigIn(s,16))],["Octal → Decimal",s=>String(bigIn(s,8))]]},
- {id:"timestamp",g:"Numbers",n:"Unix timestamp",d:"Convert Unix time (seconds or milliseconds) to a date, or a date to Unix time.",modes:[["Timestamp → Date",s=>{const n=Number(s.trim());if(!isFinite(n)||s.trim()==="")throw new Error("Enter a number.");const d=new Date(Math.abs(n)>1e11?n:n*1000);if(isNaN(d))throw new Error("That timestamp is out of range.");return `ISO: ${d.toISOString()}\nUTC: ${d.toUTCString()}\nLocal: ${d.toString()}`}],["Date → Timestamp",s=>{const d=new Date(s.trim());if(isNaN(d))throw new Error("Could not read that date. Try 2026-11-14 10:30.");return `Seconds: ${Math.floor(d/1000)}\nMilliseconds: ${d.getTime()}`}]]}
+ {id:"timestamp",g:"Numbers",n:"Unix timestamp",d:"Convert Unix time (seconds or milliseconds) to a date, or a date to Unix time.",modes:[["Timestamp → Date",s=>{const n=Number(s.trim());if(!isFinite(n)||s.trim()==="")throw new Error("Enter a number.");const d=new Date(Math.abs(n)>1e11?n:n*1000);if(isNaN(d))throw new Error("That timestamp is out of range.");return `ISO: ${d.toISOString()}\nUTC: ${d.toUTCString()}\nLocal: ${d.toString()}`}],["Date → Timestamp",s=>{const d=new Date(s.trim());if(isNaN(d))throw new Error("Could not read that date. Try 2026-11-14 10:30.");return `Seconds: ${Math.floor(d/1000)}\nMilliseconds: ${d.getTime()}`}]]},
+ {id:"yaml-json",g:"Data",n:"YAML and JSON",d:"Convert config files between YAML and JSON.",modes:[["YAML → JSON",s=>JSON.stringify(Y().load(s),null,2)],["JSON → YAML",s=>Y().dump(JSON.parse(s))]]},
+ {id:"xml-json",g:"Data",n:"XML and JSON",d:"Attributes become @name keys and text content becomes #text.",modes:[["XML → JSON",s=>{const d=new DOMParser().parseFromString(s,"application/xml");if(d.querySelector("parsererror"))throw new Error("That is not valid XML.");return JSON.stringify({[d.documentElement.nodeName]:xml2o(d.documentElement)},null,2)}],["JSON → XML",s=>{const d=JSON.parse(s),k=Object.keys(d);if(k.length!==1)throw new Error("The JSON needs exactly one root key.");return o2x(k[0],d[k[0]]).trim()}]]},
+ {id:"json-ts",g:"Data",n:"JSON to TypeScript",d:"Generate TypeScript types from a JSON sample.",modes:[["Generate types",s=>{const v=JSON.parse(s);return v&&typeof v==="object"&&!Array.isArray(v)?"interface Root "+tsT(v):"type Root = "+tsT(v)+";"}]]},
+ {id:"jwt",g:"Code",n:"JWT decoder",d:"Read a token’s header and payload. This does not verify the signature.",modes:[["Decode",s=>{const p=s.trim().replace(/^Bearer\s+/i,"").split(".");if(p.length<2)throw new Error("A JWT has three parts separated by dots.");const j=x=>JSON.parse(dec(b64ToU8(x))),h=j(p[0]),b=j(p[1]);let t="Header:\n"+JSON.stringify(h,null,2)+"\n\nPayload:\n"+JSON.stringify(b,null,2);for(const k of["iat","nbf","exp"])if(typeof b[k]==="number")t+=`\n${k}: ${new Date(b[k]*1000).toISOString()}`;return t}]]},
+ {id:"minify",g:"Code",n:"Minify and beautify",d:"Basic CSS and HTML tools. JS minify only strips comments and indentation, so behaviour never changes.",modes:[["Minify CSS",cssMin],["Beautify CSS",cssBeaut],["Minify HTML",htmlMin],["Beautify HTML",htmlBeaut],["Minify JS (safe)",s=>s.replace(/\/\*[\s\S]*?\*\//g,"").split("\n").map(l=>l.trim()).filter(l=>l&&!l.startsWith("//")).join("\n")]]},
+ {id:"sql",g:"Code",n:"SQL formatter",d:"Put each clause on its own line, or collapse a query to one line.",modes:[["Format",s=>s.replace(/\s+/g," ").replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|LEFT JOIN|RIGHT JOIN|INNER JOIN|JOIN|UNION|INSERT INTO|VALUES|UPDATE|SET|DELETE FROM)\b/gi,m=>"\n"+m.toUpperCase()).replace(/\b(AND|OR)\b/gi,m=>"\n  "+m.toUpperCase()).trim()],["Minify",s=>s.replace(/\s+/g," ").trim()]]},
+ {id:"cron",g:"Code",n:"Cron explainer",d:"Explain a five-field cron expression, such as */15 9-17 * * 1-5.",modes:[["Explain",s=>{const f=s.trim().split(/\s+/);if(f.length!==5)throw new Error("Enter five fields: minute hour day-of-month month weekday.");const N=["minute","hour","day of month","month","weekday"],W="Sunday Monday Tuesday Wednesday Thursday Friday Saturday".split(" "),M=" January February March April May June July August September October November December".split(" ");return f.map((v,i)=>{const nm=i===4?W:i===3?M:null,t=v==="*"?"every "+N[i]:/^\*\/\d+$/.test(v)?`every ${v.slice(2)} ${N[i]}s`:v.split(",").map(x=>x.split("-").map(y=>nm&&nm[+y]?nm[+y]:y).join(" to ")).join(", ");return N[i][0].toUpperCase()+N[i].slice(1)+": "+t}).join("\n")}]]},
+ {id:"slug",g:"Text",n:"Slug generator",d:"Turn a title into a clean URL slug.",modes:[["Make slug",s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")]]},
+ {id:"cipher",g:"Text",n:"ROT13 and Caesar cipher",d:"Shift letters to scramble or unscramble simple text.",modes:[["ROT13",rot(13)],["Caesar +3",rot(3)],["Caesar −3",rot(-3)],["Atbash",s=>s.replace(/[a-z]/gi,c=>{const b=c<"a"?65:97;return String.fromCharCode(b+25-(c.charCodeAt(0)-b))})]]},
+ {id:"morse",g:"Text",n:"Morse code",d:"Separate letters with spaces and words with a slash.",modes:[["Text → Morse",s=>s.toUpperCase().split(/\s+/).map(w=>[...w].map(c=>MC[c]||"").filter(Boolean).join(" ")).join(" / ")],["Morse → Text",s=>{const R=Object.fromEntries(Object.entries(MC).map(([k,v])=>[v,k]));return s.trim().split(/\s*\/\s*/).map(w=>w.split(/\s+/).map(c=>R[c]||"?").join("")).join(" ")}]]},
+ {id:"lines",g:"Text",n:"Line tools",d:"Sort lines, remove duplicates, or reverse their order.",modes:[["Remove duplicates",lines(a=>[...new Set(a)])],["Sort A → Z",lines(a=>[...a].sort((x,y)=>x.localeCompare(y)))],["Sort Z → A",lines(a=>[...a].sort((x,y)=>y.localeCompare(x)))],["Sort numerically",lines(a=>[...a].sort((x,y)=>parseFloat(x)-parseFloat(y)))],["Reverse order",lines(a=>[...a].reverse())],["Remove empty lines",lines(a=>a.filter(x=>x.trim()))]]},
+ {id:"roman",g:"Numbers",n:"Roman numerals",d:"Convert between numbers and Roman numerals (1 to 3999).",modes:[["Number → Roman",toR],["Roman → Number",fromR]]},
+ {id:"number-words",g:"Numbers",n:"Number to words",d:"Spell out whole numbers in English.",modes:[["Number → Words",s=>{const n=Number(s.replace(/,/g,"").trim());if(!Number.isInteger(n)||Math.abs(n)>=1e15)throw new Error("Enter a whole number below one quadrillion.");return (n<0?"minus ":"")+nw(Math.abs(n))}]]},
+ {id:"px-rem",g:"Numbers",n:"px, rem and em",d:"Convert CSS units using a 16px base. Enter one value per line.",modes:[["px → rem",pxr(1)],["rem → px",pxr(0)]]},
+ {id:"scientific",g:"Numbers",n:"Scientific notation and IEEE-754",d:"Convert to scientific notation or view the bits of a floating-point number.",modes:[["Number → Scientific",s=>{const n=Number(s);if(s.trim()===""||isNaN(n))throw new Error("Enter a number.");return n.toExponential()}],["Scientific → Number",s=>{const n=Number(s);if(s.trim()===""||isNaN(n))throw new Error("Enter a number like 1.5e6.");return n.toLocaleString("fullwide",{useGrouping:false,maximumFractionDigits:20})}],["Float64 bits",s=>bits(s,64)],["Float32 bits",s=>bits(s,32)]]}
 ];
 
 function textToolUI(t){
@@ -282,12 +320,105 @@ init(){
     const f=$("uf").value;$("uo").innerHTML=kv(Object.keys(U[c]).filter(k=>k!==f||0).map(k=>[k,fmtNum(conv(v,c,f,k))]));
     $("ut").style.outline="";}
   $("uc").onchange=reset;$("uv").oninput=run;$("uf").onchange=run;$("ut").onchange=()=>{const c=$("uc").value,v=parseFloat($("uv").value);if(!isNaN(v))$("uo").innerHTML=kv([[$("ut").value,fmtNum(conv(v,c,$("uf").value,$("ut").value))],...Object.keys(U[c]).filter(k=>k!==$("ut").value).map(k=>[k,fmtNum(conv(v,c,$("uf").value,k))])])};
-  reset()}}
+  reset()}},
+{id:"generators",g:"Generators",n:"UUID, password and lorem ipsum",d:"Generate random values in your browser.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="gk">Type</label><select id="gk"><option value="u">UUID v4</option><option value="p">Password</option><option value="l">Lorem ipsum (paragraphs)</option></select></div><div class="grow"><label for="gn">Count or length</label><input type="number" id="gn" min="1" max="500" value="5"></div></div><label for="go">Result</label><textarea id="go" readonly></textarea><div class="row"><button id="gg">Generate</button><button class="ghost" data-t="go">Copy</button></div></div>`,
+init(){const rnd=n=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%n};
+ const L="lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure in reprehenderit voluptate velit esse cillum fugiat nulla pariatur".split(" ");
+ const gen=()=>{const k=$("gk").value,n=Math.min(500,Math.max(1,parseInt($("gn").value)||1));
+  if(k==="u")$("go").value=Array.from({length:n},()=>crypto.randomUUID?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=rnd(16);return(c==="x"?r:r&3|8).toString(16)})).join("\n");
+  else if(k==="p"){const c="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*-_=+?";$("go").value=Array.from({length:n},()=>c[rnd(c.length)]).join("")}
+  else $("go").value=Array.from({length:n},()=>{const s=Array.from({length:40+rnd(40)},()=>L[rnd(L.length)]).join(" ");return s[0].toUpperCase()+s.slice(1)+"."}).join("\n\n")};
+ $("gg").onclick=gen;$("gk").onchange=()=>{$("gn").value={u:5,p:16,l:3}[$("gk").value];gen()};gen()}},
+
+{id:"qr",g:"Generators",n:"QR code generator",d:"Make a QR code from text or a link and save it as a PNG.",
+ui:()=>`<div class="card"><label for="qt">Text or URL</label><textarea id="qt" style="min-height:90px" placeholder="https://goutham.live"></textarea><div class="row"><div class="grow"><label for="qs">Size</label><select id="qs"><option value="6">Small</option><option value="10" selected>Medium</option><option value="16">Large</option></select></div><div class="grow"><label for="ql">Error correction</label><select id="ql"><option value="L">Low</option><option value="M" selected>Medium</option><option value="Q">Quartile</option><option value="H">High</option></select></div></div><div class="err" id="eq"></div><canvas id="qc" style="max-width:100%;height:auto;margin-top:12px;border-radius:8px;display:none"></canvas><div class="row"><a class="btn" id="qd" style="display:none">Download PNG</a></div></div>`,
+init(){const run=()=>{const t=$("qt").value,c=$("qc"),e=$("eq");e.textContent="";c.style.display="none";$("qd").style.display="none";if(!t)return;
+ if(typeof qrcode==="undefined"){e.textContent="The QR library did not load. Reload the page.";return}
+ try{qrcode.stringToBytes=qrcode.stringToBytesFuncs["UTF-8"];const q=qrcode(0,$("ql").value);q.addData(t,"Byte");q.make();const n=q.getModuleCount(),s=+$("qs").value,m=4,w=(n+2*m)*s;c.width=c.height=w;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,w);x.fillStyle="#000";for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect((k+m)*s,(r+m)*s,s,s);c.style.display="block";c.toBlob(b=>download($("qd"),b,"qr-code.png"))}catch{e.textContent="That text is too long for a QR code. Shorten it or lower the error correction."}};
+ ["qt","qs","ql"].forEach(x=>$(x).oninput=run)}},
+
+{id:"regex",g:"Code",n:"Regex tester",d:"Test a pattern and see every match highlighted.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="rp">Pattern</label><input type="text" id="rp" spellcheck="false" placeholder="[a-z]+@[a-z]+"></div><div style="width:90px"><label for="rf">Flags</label><input type="text" id="rf" value="g" spellcheck="false"></div></div><label for="rt">Test text</label><textarea id="rt" spellcheck="false"></textarea><div class="err" id="re"></div><label>Highlighted</label><div class="card" id="rh" style="white-space:pre-wrap;word-break:break-word;margin:0;font-family:ui-monospace,Menlo,monospace;font-size:13px"></div><label>Matches</label><div id="rm"></div></div>`,
+init(){const run=()=>{$("re").textContent="";const t=$("rt").value,p=$("rp").value;let re;$("rm").innerHTML="";$("rh").textContent=t;if(!p)return;
+ try{const f=$("rf").value;re=new RegExp(p,f.includes("g")?f:f+"g")}catch(e){$("re").textContent=e.message;return}
+ let h="",i=0,rows=[];for(const m of t.matchAll(re)){h+=esc(t.slice(i,m.index))+"<mark>"+esc(m[0])+"</mark>";i=m.index+m[0].length;if(rows.length<50)rows.push(["#"+(rows.length+1),m[0]+(m.length>1?"  |  groups: "+m.slice(1).map(x=>x??"").join(", "):"")])}
+ $("rh").innerHTML=h+esc(t.slice(i));$("rm").innerHTML=rows.length?kv(rows):`<div class="note">No matches.</div>`};
+ ["rp","rf","rt"].forEach(x=>$(x).oninput=run)}},
+
+{id:"diff",g:"Text",n:"Text diff",d:"Compare two texts by line or by word. Green is added, red is removed.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="da">Original</label><textarea id="da"></textarea></div><div class="grow"><label for="db">Changed</label><textarea id="db"></textarea></div></div><label for="dm">Compare by</label><select id="dm"><option value="l">Lines</option><option value="w">Words</option></select><label>Result</label><div class="card" id="dr" style="white-space:pre-wrap;word-break:break-word;margin:0;font-family:ui-monospace,Menlo,monospace;font-size:13px"></div></div>`,
+init(){const run=()=>{const w=$("dm").value==="w",sp=s=>w?s.split(/(\s+)/):s.split("\n"),a=sp($("da").value),b=sp($("db").value),n=a.length,m=b.length;
+ if(n*m>4e6){$("dr").textContent="These texts are too long to compare here. Try shorter text.";return}
+ const T=Array.from({length:n+1},()=>new Uint16Array(m+1));
+ for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)T[i][j]=a[i]===b[j]?T[i+1][j+1]+1:Math.max(T[i+1][j],T[i][j+1]);
+ let i=0,j=0,o="";const sep=w?"":"\n",R=x=>`<span style="background:#e5484d55">${esc(x)}</span>`,A=x=>`<span style="background:#2fb86a55">${esc(x)}</span>`;
+ while(i<n||j<m){if(i<n&&j<m&&a[i]===b[j]){o+=esc(a[i])+sep;i++;j++}else if(j<m&&(i===n||T[i][j+1]>=T[i+1][j]))o+=A(b[j++])+sep;else o+=R(a[i++])+sep}
+ $("dr").innerHTML=o};
+ ["da","db","dm"].forEach(x=>$(x).oninput=run)}},
+
+{id:"dates",g:"Dates and money",n:"Date calculator",d:"Find the gap between two dates, an age, or the date a number of days away.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="d1">From (or birth date)</label><input type="date" id="d1"></div><div class="grow"><label for="d2">To</label><input type="date" id="d2"></div></div><div id="dout"></div><label for="dd">Days to add or subtract from the From date</label><input type="number" id="dd" value="30"><div id="dadd"></div></div>`,
+init(){$("d2").value=new Date().toLocaleDateString("en-CA");
+ const run=()=>{const a=$("d1").value,b=$("d2").value,o=$("dout");o.innerHTML="";
+  if(a&&b){let x=new Date(a+"T00:00"),y=new Date(b+"T00:00");const neg=x>y;if(neg)[x,y]=[y,x];let Yr=y.getFullYear()-x.getFullYear(),M=y.getMonth()-x.getMonth(),D=y.getDate()-x.getDate();if(D<0){M--;D+=new Date(y.getFullYear(),y.getMonth(),0).getDate()}if(M<0){Yr--;M+=12}
+   const days=Math.round((y-x)/864e5);o.innerHTML=kv([["Gap",`${Yr} years, ${M} months, ${D} days`],["Days",String(days)],["Weeks",fmtNum(days/7)],["Hours",String(days*24)]])+(neg?`<div class="note">The To date is earlier, so the gap is shown as a positive span.</div>`:"")}
+  const n=parseInt($("dd").value);$("dadd").innerHTML="";if(a&&!isNaN(n)){const d=new Date(a+"T00:00");d.setDate(d.getDate()+n);$("dadd").innerHTML=kv([["Result",d.toDateString()]])}};
+ ["d1","d2","dd"].forEach(x=>$(x).oninput=run);run()}},
+
+{id:"timezone",g:"Dates and money",n:"Time zone converter",d:"Convert a date and time from one time zone to another.",
+ui:()=>`<div class="card"><label for="tz0">Date and time</label><input type="datetime-local" id="tz0"><div class="row"><div class="grow"><label for="tz1">From</label><select id="tz1"></select></div><div class="grow"><label for="tz2">To</label><select id="tz2"></select></div></div><div id="tzo"></div></div>`,
+init(){const me=Intl.DateTimeFormat().resolvedOptions().timeZone,Z=Intl.supportedValuesOf?Intl.supportedValuesOf("timeZone"):[me];if(!Z.includes("UTC"))Z.unshift("UTC");
+ for(const s of["tz1","tz2"])$(s).innerHTML=Z.map(z=>`<option>${z}</option>`).join("");
+ $("tz1").value=me;$("tz2").value="UTC";$("tz0").value=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+ const off=(t,z)=>{const p=Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:z,hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}).formatToParts(t).map(x=>[x.type,x.value]));return Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,p.second)-Math.floor(t/1000)*1000};
+ const run=()=>{const v=$("tz0").value;if(!v){$("tzo").innerHTML="";return}
+  const g=Date.parse(v+":00Z");let u=g-off(new Date(g),$("tz1").value);u=g-off(new Date(u),$("tz1").value);
+  $("tzo").innerHTML=kv([["Converted",new Intl.DateTimeFormat("en-GB",{timeZone:$("tz2").value,dateStyle:"full",timeStyle:"long"}).format(u)],["UTC",new Date(u).toISOString()]])};
+ ["tz0","tz1","tz2"].forEach(x=>$(x).oninput=run);run()}},
+
+{id:"currency",g:"Dates and money",n:"Currency converter",d:"Convert currencies using daily European Central Bank rates from frankfurter.app. Needs an internet connection.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="ca">Amount</label><input type="number" id="ca" value="100" step="any"></div><div class="grow"><label for="cf">From</label><select id="cf"></select></div><div class="grow"><label for="ct">To</label><select id="ct"></select></div></div><div class="err" id="ec2"></div><div id="co2"></div><div class="note" id="cn"></div></div>`,
+async init(){try{const r=await fetch("https://api.frankfurter.app/currencies");if(!r.ok)throw 0;const o=Object.entries(await r.json()).map(([k,v])=>`<option value="${k}">${k} – ${esc(v)}</option>`).join("");$("cf").innerHTML=o;$("ct").innerHTML=o;$("cf").value="USD";$("ct").value="INR"}catch{$("ec2").textContent="Could not load currencies. Check your connection and reload.";return}
+ let tk=0;const run=async()=>{const a=parseFloat($("ca").value),f=$("cf").value,t=$("ct").value,my=++tk;if(isNaN(a)){$("co2").innerHTML="";return}
+  if(f===t){$("co2").innerHTML=kv([[t,fmtNum(a)]]);return}
+  try{const r=await fetch(`https://api.frankfurter.app/latest?amount=${a}&from=${f}&to=${t}`);if(!r.ok)throw 0;const d=await r.json();if(my!==tk)return;$("ec2").textContent="";$("co2").innerHTML=kv([[t,fmtNum(d.rates[t])]]);$("cn").textContent="Rates from "+d.date}catch{$("ec2").textContent="Could not fetch the rate. Try again."}};
+ ["ca","cf","ct"].forEach(x=>$(x).oninput=run);run()}},
+
+{id:"contrast",g:"Color and hash",n:"Contrast checker",d:"Check text and background colors against WCAG contrast levels.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="k1">Text color</label><input type="color" id="k1" value="#1d2024"></div><div class="grow"><label for="k2">Background</label><input type="color" id="k2" value="#ffffff"></div></div><div id="ks" style="margin:14px 0;padding:16px;border-radius:8px;border:1px solid var(--line);font-size:18px">The quick brown fox jumps over the lazy dog.</div><div id="ko"></div></div>`,
+init(){const L=h=>{const c=[1,3,5].map(i=>{const v=parseInt(h.substr(i,2),16)/255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4});return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+ const run=()=>{const a=$("k1").value,b=$("k2").value,x=L(a),y=L(b),r=(Math.max(x,y)+.05)/(Math.min(x,y)+.05),p=t=>r>=t?"Pass":"Fail";
+  $("ks").style.color=a;$("ks").style.background=b;$("ko").innerHTML=kv([["Ratio",r.toFixed(2)+" : 1"],["AA text",p(4.5)],["AA large",p(3)],["AAA text",p(7)],["AAA large",p(4.5)]])};
+ ["k1","k2"].forEach(x=>$(x).oninput=run);run()}},
+
+{id:"gradient",g:"Color and hash",n:"Gradient generator",d:"Build a CSS gradient and copy the code.",
+ui:()=>`<div class="card"><div class="swatch" id="gp" style="height:120px"></div><div class="row" style="margin-top:0"><div class="grow"><label for="g1">Color 1</label><input type="color" id="g1" value="#0f766e"></div><div class="grow"><label for="g2">Color 2</label><input type="color" id="g2" value="#2dd4bf"></div><div class="grow"><label for="gt">Type</label><select id="gt"><option value="linear">Linear</option><option value="radial">Radial</option></select></div></div><label for="ga">Angle: <span id="gv">135</span>°</label><input type="range" id="ga" min="0" max="360" value="135" style="width:100%"><div id="gc"></div></div>`,
+init(){const run=()=>{$("gv").textContent=$("ga").value;const c=$("gt").value==="linear"?`linear-gradient(${$("ga").value}deg, ${$("g1").value}, ${$("g2").value})`:`radial-gradient(circle, ${$("g1").value}, ${$("g2").value})`;$("gp").style.background=c;$("gc").innerHTML=kv([["CSS","background: "+c+";"]])};
+ ["g1","g2","gt","ga"].forEach(x=>$(x).oninput=run);run()}},
+
+{id:"image-compress",g:"Images",n:"Image compressor",d:"Shrink an image to a target file size by lowering JPG or WebP quality and, if needed, its dimensions.",
+ui:()=>`<div class="card"><label for="f4">Choose an image</label><input type="file" id="f4" accept="image/*"><div class="row"><div class="grow"><label for="t4">Format</label><select id="t4"><option value="image/jpeg">JPG</option><option value="image/webp">WebP</option></select></div><div class="grow"><label for="s4">Target size (KB)</label><input type="number" id="s4" value="200" min="5"></div></div><div class="row"><button id="go4">Compress</button></div><div class="err" id="e4"></div><div class="note" id="n4"></div><img class="pv" id="p4" alt="Compressed image" hidden><div class="row"><a class="btn" id="dl4" style="display:none">Download image</a></div></div>`,
+init(){$("go4").onclick=()=>{const f=$("f4").files[0],e=$("e4");e.textContent="";$("n4").textContent="";if(!f){e.textContent="Choose an image first.";return}
+ const u=URL.createObjectURL(f),img=new Image();img.onerror=()=>{URL.revokeObjectURL(u);e.textContent="Could not read that file as an image."};
+ img.onload=async()=>{URL.revokeObjectURL(u);$("n4").textContent="Compressing…";const type=$("t4").value,goal=($("s4").value||200)*1024;let w=img.naturalWidth||300,h=img.naturalHeight||150,best=null,uw=w,uh=h;
+  const enc=(w,h,q)=>new Promise(r=>{const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);c.toBlob(r,type,q)});
+  for(let s=0;s<8&&!best;s++){uw=w;uh=h;let lo=.2,hi=.95,ok=null,last=null;for(let i=0;i<7;i++){const m=(lo+hi)/2,b=await enc(w,h,m);if(!b){e.textContent="The browser could not export this format.";$("n4").textContent="";return}last=b;if(b.size<=goal){ok=b;lo=m}else hi=m}
+   if(ok||s===7)best=ok||last;else{w=Math.round(w*.8);h=Math.round(h*.8)}}
+  const p=$("p4");if(p._u)URL.revokeObjectURL(p._u);p._u=URL.createObjectURL(best);p.src=p._u;p.hidden=false;
+  $("n4").textContent=`${uw}×${uh}px, ${fmtSize(best.size)} (original ${fmtSize(f.size)}).`+(best.size>goal?" Could not reach the target size.":"");
+  download($("dl4"),best,(f.name.replace(/\.[^.]+$/,"")||"image")+"-compressed."+best.type.split("/")[1].replace("jpeg","jpg"))};img.src=u}}},
+
+{id:"percent",g:"Numbers",n:"Percentage, discount and tip",d:"Enter A and B to see the common percentage results at once.",
+ui:()=>`<div class="card"><div class="row" style="margin-top:0"><div class="grow"><label for="pa">A (percent or first value)</label><input type="number" id="pa" value="15" step="any"></div><div class="grow"><label for="pb">B (amount or second value)</label><input type="number" id="pb" value="200" step="any"></div><div class="grow"><label for="pp">People (to split)</label><input type="number" id="pp" value="2" min="1"></div></div><div id="po"></div></div>`,
+init(){const run=()=>{const a=parseFloat($("pa").value),b=parseFloat($("pb").value),n=Math.max(1,parseInt($("pp").value)||1);if(isNaN(a)||isNaN(b)){$("po").innerHTML="";return}
+ const f=x=>fmtNum(+x.toFixed(4));$("po").innerHTML=kv([["A% of B",f(a*b/100)],["A is % of B",b?f(a/b*100)+"%":"n/a"],["Change A → B",a?f((b-a)/Math.abs(a)*100)+"%":"n/a"],["B − A%",f(b*(1-a/100))],["B + A%",f(b*(1+a/100))],["Split B + A%",f(b*(1+a/100)/n)+" each"]])};
+ ["pa","pb","pp"].forEach(x=>$(x).oninput=run);run()}}
 ];
 
 /* ---------- registry, nav, routing ---------- */
 const TOOLS=[...TEXT_TOOLS.map(t=>({...t,ui:()=>textToolUI(t),init:()=>textToolInit(t)})),...CUSTOM];
-const ORDER=["Data","Text","Images","Color and hash","Numbers"];
+const ORDER=["Data","Code","Text","Images","Generators","Color and hash","Numbers","Dates and money"];
 
 function copyText(text,btn){
   const done=()=>{const o=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=o,1200)};
