@@ -1,693 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="theme-color" content="#000000">
-  <title>Konverter</title>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="Assets/fav1.png" />
-
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: 'Press Start 2P', monospace, sans-serif;
-      color: #f1f1f1;
-      overflow-x: hidden;
-      background-color: #000;
-
-      /* Grid pattern background for retro feel.
-         NOTE: this single animated background replaces what used to be
-         TWO overlapping animated grids (one here, one on body::before).
-         Running two full-viewport animated gradients at the same time
-         was a major source of the lag/crash, especially once a large
-         Base64 string was sitting in a textarea. */
-      background-image:
-        linear-gradient(45deg, #00ffff 1px, transparent 1px),
-        linear-gradient(-45deg, #ff00ff 1px, transparent 1px);
-      background-size: 50px 50px;
-      animation: gridScroll 30s linear infinite;
-      will-change: background-position;
-    }
-    body {
-      font-size: 14px;
-      line-height: 1.8;
-      letter-spacing: 0.5px;
-    }
-
-    /* Background animation to move grid diagonally */
-    @keyframes gridScroll {
-      0% { background-position: 0 0, 0 0; }
-      100% { background-position: 500px 500px, 500px 500px; }
-    }
-    html {
-      scrollbar-color: #00ffff #111;
-      scrollbar-width: thin;
-    }
-
-
-    .container {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 30px 20px;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 24px;
-      margin-bottom: 20px;
-      color: #00ff99;
-      text-shadow: 2px 2px #000;
-    }
-
-     /* Section card design */
-     .section {
-      margin: 40px 0;
-      background: rgba(0, 0, 0, 0.75);
-      padding: 20px;
-      border: 2px dashed #00ffcc;
-      border-radius: 10px;
-      box-shadow: 0 0 15px #00ffcc55;
-      opacity: 0;
-      transform: translateY(20px);
-      animation: fadeInUp 1s forwards;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    /* Section hover glow effect */
-    .section:hover {
-      transform: translateY(-5px) scale(1.02);
-      box-shadow: 0 0 20px #00ffffcc, 0 0 40px #00ffff88;
-      border-color: #ff00ff;
-    }
-
-    /* Delays for fade-in effect on multiple sections */
-    .section:nth-of-type(2) { animation-delay: 0.3s; }
-    .section:nth-of-type(3) { animation-delay: 0.6s; }
-    .section:nth-of-type(4) { animation-delay: 0.9s; }
-
-    @keyframes fadeInUp {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    /* Link styles */
-    a {
-      color: #ffcc00;
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-shadow: 0 0 5px #fff;
-    }
-
-
-    textarea, select, input[type="text"] {
-      background-color: #111;
-      border: 2px solid #00ffff;
-      padding: 10px;
-      border-radius: 8px;
-      box-shadow: 0 0 5px #00ffff;
-      color: #fff;
-      width: 90%;
-      margin: 10px 0;
-      font-size: 12px;
-    }
-
-    /* Cap textarea height + force internal scrolling instead of letting
-       a huge pasted Base64 string blow out layout/reflow cost */
-    textarea {
-      max-height: 220px;
-      overflow-y: auto;
-      box-sizing: border-box;
-    }
-
-    /* Used for the read-only Base64 output boxes once a large file is
-       loaded — we show a short preview instead of the full string, since
-       rendering megabytes of text in a textarea is what causes lag. */
-    .truncated-note {
-      font-size: 10px;
-      color: #aaa;
-      margin-top: 4px;
-    }
-
-    button {
-      background-color: #ff00ff;
-      color: #fff;
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: none;
-      box-shadow: 0 0 5px #ff00ff;
-      cursor: pointer;
-      margin: 5px;
-    }
-
-    button:hover {
-      background-color: #00ffff;
-      box-shadow: 0 0 10px #00ffff;
-    }
-
-    .output-box {
-      background-color: #111;
-      border: 2px solid #00ffff;
-      padding: 5px;
-      margin-top: 10px;
-      color: #fff;
-      text-align: left;
-      overflow-wrap: break-word;
-      white-space: normal;
-      font-size: 12px;
-      max-width: 100%;
-      margin: 10px auto;
-    }
-
-    .hash-256 {
-      background-color: #111;
-      border: 2px solid #00ffff;
-      padding: 8px;
-      margin-top: 10px;
-      color: #fff;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-      word-wrap: break-word;
-      white-space: normal;
-      max-width: 100%;
-      overflow-x: auto;
-      word-break: break-all;
-      margin: 10px auto;
-    }
-
-    /* Small status/error text under the Base64->Image converter */
-    .status-text {
-      font-size: 11px;
-      margin-top: 6px;
-      min-height: 14px;
-    }
-    .status-text.error { color: #ff6b6b; }
-    .status-text.ok { color: #66ffcc; }
-
-  /* Avatar image styling */
-  .avatar {
-      width: 80px;
-      height: 80px;
-      image-rendering: pixelated;
-      border: 4px solid #00ffff;
-      box-shadow: 0 0 10px #00ffffaa;
-      background-color: #111;
-      padding: 6px;
-      border-radius: 8px;
-      animation: pulseGlow 2s infinite ease-in-out;
-    }
-
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Konverter</title>
+<link rel="icon" type="image/png" href="Assets/fav1.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f6f3;--surf:#fff;--ink:#1d2024;--mut:#6a717b;--line:#e1e3e6;--acc:#0f766e;--accink:#fff;--err:#b42318;--ok:#067647;--r:10px;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1214;--surf:#171b1e;--ink:#e8eaed;--mut:#98a1ab;--line:#272d32;--acc:#2dd4bf;--accink:#04201d;--err:#f97066;--ok:#47cd89;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1214;--surf:#171b1e;--ink:#e8eaed;--mut:#98a1ab;--line:#272d32;--acc:#2dd4bf;--accink:#04201d;--err:#f97066;--ok:#47cd89;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 "DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.app{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}
+nav{position:sticky;top:0;height:100vh;overflow:auto;padding:24px 14px;border-right:1px solid var(--line);background:var(--surf)}
+.brand{font-size:20px;font-weight:700;margin:0 8px 18px}
+nav h3{font-size:12px;font-weight:500;color:var(--mut);margin:18px 8px 6px}
+nav a{display:block;padding:7px 10px;border-radius:8px;color:var(--ink);text-decoration:none}
+nav a:hover{background:var(--bg)}
+nav a.on{background:var(--acc);color:var(--accink);font-weight:500}
+.foot{margin:22px 8px 0;font-size:13px;color:var(--mut)}
+.foot a{display:inline;padding:0;color:var(--mut);text-decoration:underline}
+main{padding:36px clamp(16px,4vw,56px) 56px;max-width:860px;width:100%}
+h1{font-size:26px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 22px}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:500;color:var(--mut);margin:12px 0 5px}
+label:first-child{margin-top:0}
+textarea,input[type=text],input[type=number],select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
+textarea{min-height:130px;max-height:320px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+textarea:focus,input:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.row>*{flex:0 1 auto}.row>.grow{flex:1 1 160px}
+button,.btn{background:var(--acc);color:var(--accink);border:0;border-radius:8px;padding:9px 16px;font:inherit;font-weight:500;cursor:pointer;text-decoration:none;display:inline-block}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:hover,.btn:hover{filter:brightness(1.08)}
+.err{color:var(--err);font-size:13px;min-height:18px;margin-top:8px}
+.ok{color:var(--ok)}.note{font-size:13px;color:var(--mut);margin-top:8px}
+.kv{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.kv:first-child{border-top:0}
+.kv span{width:76px;color:var(--mut);font-size:13px;flex:none}
+.kv code{flex:1;word-break:break-all;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.kv button{padding:5px 11px;font-size:13px}
+.swatch{height:56px;border-radius:8px;border:1px solid var(--line);margin-bottom:12px}
+img.pv{max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--line);margin-top:12px;display:block;background:repeating-conic-gradient(#8883 0 25%,transparent 0 50%) 0 0/16px 16px}
+iframe{width:100%;height:300px;border:1px solid var(--line);border-radius:8px;background:#fff}
+input[type=color]{width:46px;height:40px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.top{display:flex;align-items:center;justify-content:space-between}
+.top .brand{margin:0 8px 0 8px}
+.top button{padding:5px 11px;font-size:13px}
+footer.foot{margin:28px 0 0}
+@media (max-width:760px){
+body{font-size:16px}
+.app{display:block}
+nav{position:sticky;top:0;z-index:5;height:auto;overflow:visible;border:0;border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top,0px)) 0 10px}
+.top{padding:0 14px}.top .brand{margin:0;font-size:18px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 14px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+nav h3{display:none}
+nav a{flex:none;white-space:nowrap;border:1px solid var(--line);border-radius:999px;padding:8px 14px}
+main{padding:20px 14px calc(32px + env(safe-area-inset-bottom,0px))}
+h1{font-size:22px}.sub{margin-bottom:16px}
+.card{padding:14px}
+textarea,input[type=text],input[type=number],select{font-size:16px;min-height:44px}
+textarea{min-height:120px}
+input[type=file]{width:100%;font-size:14px}
+button,.btn{min-height:44px;padding:10px 16px}
+.row>button,.row>.btn{flex:1 1 100%;text-align:center}
+.kv{flex-wrap:wrap;row-gap:4px}.kv span{width:100%}.kv code{flex:1 1 0;min-width:0}.kv button{min-height:36px;flex:none}
+iframe{height:240px}
+img.pv{max-height:280px}
+}
+@media (prefers-reduced-motion:no-preference){button{transition:filter .15s}}
+</style>
 </head>
-
 <body>
-<div class="container">
-  <h1>Konverter</h1>
+<div class="app">
+  <nav id="nav"></nav>
+  <main id="main"></main>
 </div>
-
-  <!-- CSV / JSON -->
-  <div class="section">
-    <h2>📁 CSV ↔ JSON</h2>
-    <textarea id="csvInput" rows="5" placeholder="Enter CSV or JSON data here"></textarea>
-    <select id="csvJsonSelect">
-      <option value="csvToJson">CSV to JSON</option>
-      <option value="jsonToCsv">JSON to CSV</option>
-    </select>
-    <button onclick="convertCSVJSON()">Convert</button>
-    <div class="output-box" id="csvJsonOutput"></div>
-  </div>
-
-  <!-- Markdown to HTML -->
-  <div class="section">
-    <h1>Markdown to HTML</h1>
-    <textarea id="markdownInput" placeholder="Type your Markdown here..."></textarea>
-    <button onclick="convertMarkdown()">Convert</button>
-    <div id="htmlOutput"></div>
-  </div>
-
-  <!-- Text to Base64 -->
-  <div class="section">
-    <h2>🔐 Text → Base64</h2>
-    <textarea id="textInput" rows="3" placeholder="Enter text"></textarea>
-    <button onclick="textToBase64()">Convert</button>
-    <div class="output-box" id="textOutput"></div>
-  </div>
-
-  <div class="section" id="imageBase64Converter">
-    <h2>🎨 Image ⇆ Base64</h2>
-
-    <div class="converter-container">
-      <!-- Image to Base64 -->
-      <div>
-        <h3>Convert Image to Base64</h3>
-        <input type="file" id="imageInput" class="file-input" accept="image/*">
-        <button class="convert-btn" onclick="imageToBase64()">Convert to Base64</button>
-        <textarea id="base64Output" class="file-input" placeholder="Base64 output" readonly></textarea>
-        <div class="truncated-note" id="base64OutputNote"></div>
-        <button id="copyBase64OutputBtn" style="display:none;" onclick="copyFullBase64Output()">Copy full Base64</button>
-      </div>
-    </div>
-
-    <h2>🔄 Base64 to Image Converter</h2>
-
-    <div>
-      <h3>Enter Base64 String to Convert to Image</h3>
-      <textarea id="base64Input" placeholder="Paste your Base64 string here..." rows="6" cols="50"></textarea>
-      <button onclick="convertBase64ToImage()">Convert</button>
-      <div id="base64ToImageStatus" class="status-text"></div>
-
-      <!-- Image display after conversion -->
-      <div>
-        <h3>Converted Image:</h3>
-        <img id="convertedImage" style="max-width: 100%; max-height: 400px; display: none;">
-      </div>
-
-      <!-- Download link -->
-      <a id="downloadImageLink" style="display: none;" class="button" download="converted-image.png">Download Converted Image</a>
-    </div>
-  </div>
-
-  <div class="section" id="hexRgbConverter">
-    <div class="container">
-      <h1>Hex to RGB & RGB to Hex Converter</h1>
-
-      <!-- Hex to RGB Converter -->
-      <div class="converter">
-          <h2>Hex to RGB</h2>
-          <label for="hexInput">Enter Hex Color:</label>
-          <input type="text" id="hexInput" placeholder="#34A7E0" />
-          <button onclick="convertHexToRgb()">Convert</button>
-          <p id="hexToRgbResult">Result: </p>
-      </div>
-
-      <!-- RGB to Hex Converter -->
-      <div class="converter">
-          <h2>RGB to Hex</h2>
-          <label for="rInput">Red:</label>
-          <input type="number" id="rInput" placeholder="0" min="0" max="255" />
-          <label for="gInput">Green:</label>
-          <input type="number" id="gInput" placeholder="0" min="0" max="255" />
-          <label for="bInput">Blue:</label>
-          <input type="number" id="bInput" placeholder="0" min="0" max="255" />
-          <button onclick="convertRgbToHex()">Convert</button>
-          <p id="rgbToHexResult">Result: </p>
-      </div>
-    </div>
-  </div>
-
-  <div class="section" id="hashGenerator">
-    <h2>Hash Generator</h2>
-    <label for="hashInput">Enter Text:</label>
-    <input type="text" id="hashInput" placeholder="Enter text to generate hash">
-
-    <button onclick="generateHashes()">Generate Hashes</button>
-    <div class="output-box hash-256">
-      <h3>SHA256 Hash:</h3>
-      <pre id="sha256Output"></pre>
-      <button onclick="copyToClipboard('sha256Output')">Copy SHA256</button>
-
-      <h3>MD5 Hash:</h3>
-      <pre id="md5Output"></pre>
-      <button onclick="copyToClipboard('md5Output')">Copy MD5</button>
-    </div>
-  </div>
-
-  <!-- Image Format Converter Section -->
-  <div class="section">
-    <h2>🎨 Image Format Converter</h2>
-
-    <div>
-      <h3>Convert Image to Format (PNG, JPG, GIF, BMP, TIFF, WebP)</h3>
-      <input type="file" id="imageFileInput" accept="image/*">
-      <select id="imageFormatSelect">
-        <option value="image/png">PNG</option>
-        <option value="image/jpeg">JPG</option>
-        <option value="image/gif">GIF</option>
-        <option value="image/bmp">BMP</option>
-        <option value="image/tiff">TIFF</option>
-        <option value="image/webp">WebP</option>
-      </select>
-      <button onclick="convertImageFormat()">Convert</button>
-
-      <!-- Canvas to hold the image for conversion -->
-      <canvas id="imageCanvas" style="display:none;"></canvas>
-      <a id="downloadLink" style="display:none;" download="converted-image" class="button">Download Converted Image</a>
-    </div>
-  </div>
-
-  <footer style="text-align:center;"><a href="https://gk.is-a.dev">ⓒ 2025 gk.is-a.dev ⚡</a></footer>
-
-
-<script>
-  function copyToClipboard(elementId) {
-    const text = document.getElementById(elementId).innerText;
-    navigator.clipboard.writeText(text).then(() => {
-      alert(`${elementId.replace('Output', '')} copied to clipboard!`);
-    }, () => {
-      alert('Failed to copy!');
-    });
-  }
-
-
-  function convertCSVJSON() {
-    const inputText = document.getElementById('csvInput').value;
-    const selectedOption = document.getElementById('csvJsonSelect').value;
-    let outputText = '';
-
-    if (selectedOption === 'csvToJson') {
-      outputText = CSVToJSON(inputText);
-    } else if (selectedOption === 'jsonToCsv') {
-      outputText = JSONToCSV(inputText);
-    }
-    document.getElementById('csvJsonOutput').innerText = outputText;
-  }
-
-  function CSVToJSON(csv) {
-    const rows = csv.split('\n').filter(r => r.trim() !== '');
-    const headers = rows[0].split(',');
-    const result = rows.slice(1).map(row => {
-      const values = row.split(',');
-      const obj = {};
-      headers.forEach((header, i) => {
-        obj[header] = values[i];
-      });
-      return obj;
-    });
-    return JSON.stringify(result, null, 2);
-  }
-
-  function JSONToCSV(json) {
-    const obj = JSON.parse(json);
-    const headers = Object.keys(obj[0]);
-    const rows = obj.map(row => headers.map(header => row[header]).join(','));
-    return [headers.join(','), ...rows].join('\n');
-  }
-
-
-  function textToBase64() {
-    const text = document.getElementById('textInput').value;
-    const encoded = btoa(text);
-    document.getElementById('textOutput').innerText = encoded;
-  }
-
-  // Holds the full Base64 string in memory so the DOM never has to
-  // render megabytes of text — only a short preview is shown.
-  let fullBase64Output = '';
-
-  function imageToBase64() {
-    const fileInput = document.getElementById('imageInput');
-    const base64Output = document.getElementById('base64Output');
-    const note = document.getElementById('base64OutputNote');
-    const copyBtn = document.getElementById('copyBase64OutputBtn');
-
-    base64Output.value = '';
-    note.textContent = '';
-    copyBtn.style.display = 'none';
-    fullBase64Output = '';
-
-    if (!fileInput.files.length) {
-      base64Output.value = 'Please select an image first!';
-      return;
-    }
-
-    const file = fileInput.files[0];
-
-    // No artificial file-size cap here — large/high-quality images are
-    // fine. The previous version blocked anything over 8MB, which is
-    // exactly what was breaking on bigger photos. The actual fix is to
-    // not render the full string in the DOM (below), not to reject it.
-    const reader = new FileReader();
-
-    reader.onload = function (e) {
-      fullBase64Output = e.target.result;
-
-      const PREVIEW_LIMIT = 2000; // characters shown in the textarea
-      if (fullBase64Output.length > PREVIEW_LIMIT) {
-        base64Output.value = fullBase64Output.slice(0, PREVIEW_LIMIT) + '... [truncated for display]';
-        const sizeKB = (fullBase64Output.length / 1024).toFixed(1);
-        note.textContent = `Full Base64 string is ${sizeKB} KB. Showing a preview only — use "Copy full Base64" to get the entire string.`;
-        copyBtn.style.display = 'inline-block';
-      } else {
-        base64Output.value = fullBase64Output;
-      }
-    };
-    reader.onerror = function () {
-      base64Output.value = 'Failed to read the selected file.';
-      fullBase64Output = '';
-    };
-
-    reader.readAsDataURL(file);
-  }
-
-  function copyFullBase64Output() {
-    if (!fullBase64Output) return;
-    navigator.clipboard.writeText(fullBase64Output).then(() => {
-      alert('Full Base64 string copied to clipboard!');
-    }, () => {
-      alert('Failed to copy!');
-    });
-  }
-
-  function setBase64ToImageStatus(message, type) {
-    const status = document.getElementById('base64ToImageStatus');
-    status.textContent = message || '';
-    status.className = 'status-text' + (type ? ' ' + type : '');
-  }
-
-  function dataUrlToBlob(dataUrl) {
-    const [header, base64] = dataUrl.split(',');
-    const mimeMatch = header.match(/data:(.*?);base64/);
-    const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-    const binary = atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return new Blob([bytes], { type: mime });
-  }
-
-  let currentImageObjectUrl = null;
-
-  function convertBase64ToImage() {
-    const base64Input = document.getElementById('base64Input').value.trim();
-    const imageElement = document.getElementById('convertedImage');
-    const downloadLink = document.getElementById('downloadImageLink');
-
-    // Reset previous state, and release any old blob URL so memory
-    // doesn't build up across repeated conversions.
-    imageElement.style.display = 'none';
-    imageElement.removeAttribute('src');
-    downloadLink.style.display = 'none';
-    downloadLink.removeAttribute('href');
-    if (currentImageObjectUrl) {
-      URL.revokeObjectURL(currentImageObjectUrl);
-      currentImageObjectUrl = null;
-    }
-    setBase64ToImageStatus('', '');
-
-    if (base64Input === '') {
-      setBase64ToImageStatus('Please paste a Base64 image string first.', 'error');
-      return;
-    }
-
-    if (!base64Input.startsWith('data:image/')) {
-      setBase64ToImageStatus('That doesn\'t look like an image data URL (should start with "data:image/...").', 'error');
-      return;
-    }
-
-    // No artificial length cap — large/high-quality images are valid
-    // input. Converting to a Blob + object URL (below) is what keeps
-    // this fast even for big images, rather than rejecting them.
-    let blob;
-    try {
-      blob = dataUrlToBlob(base64Input);
-    } catch (err) {
-      setBase64ToImageStatus('Could not decode this Base64 string. Check that it\'s complete and valid.', 'error');
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
-    currentImageObjectUrl = objectUrl;
-
-    imageElement.onload = function () {
-      imageElement.style.display = 'inline';
-      downloadLink.href = objectUrl;
-      const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-      downloadLink.download = `converted-image.${ext}`;
-      downloadLink.style.display = 'inline';
-      setBase64ToImageStatus(`Image converted successfully (${(blob.size / 1024).toFixed(1)} KB).`, 'ok');
-    };
-    imageElement.onerror = function () {
-      imageElement.style.display = 'none';
-      downloadLink.style.display = 'none';
-      URL.revokeObjectURL(objectUrl);
-      currentImageObjectUrl = null;
-      setBase64ToImageStatus('Could not decode this Base64 string as an image. Check that it\'s complete and valid.', 'error');
-    };
-
-    // Using an object URL instead of the raw data: URL keeps the <img>
-    // and the download link from each holding their own multi-megabyte
-    // string in memory/DOM attributes.
-    imageElement.src = objectUrl;
-  }
-
-  // Function to generate SHA256 hash
-  async function generateSha256Hash(text) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
-  }
-
-  // Function to generate MD5 hash using the js-md5 library
-  function generateMd5Hash(text) {
-    return md5(text); // Uses js-md5 function to generate MD5 hash
-  }
-
-  // Function to handle hash generation
-  function generateHashes() {
-    const inputText = document.getElementById('hashInput').value.trim();
-
-    if (inputText === '') {
-      alert('Please enter some text to generate hashes.');
-      return;
-    }
-
-    // SHA256 Hash
-    generateSha256Hash(inputText).then(sha256Hash => {
-      document.getElementById('sha256Output').innerText = sha256Hash;
-    });
-
-    // MD5 Hash
-    const md5Hash = generateMd5Hash(inputText);
-    document.getElementById('md5Output').innerText = md5Hash;
-  }
-
-  // Hex to RGB
-  function isValidHex(hex) {
-    return /^#([0-9A-Fa-f]{6})$/.test(hex);
-  }
-
-  function hexToRgb(hex) {
-    hex = hex.replace('#', '');
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-
-  function convertHexToRgb() {
-    const hex = document.getElementById('hexInput').value.trim();
-    if (isValidHex(hex)) {
-      document.getElementById('hexToRgbResult').innerText = `Result: ${hexToRgb(hex)}`;
-    } else {
-      document.getElementById('hexToRgbResult').innerText = 'Please enter a valid hex color (e.g. #34A7E0).';
-    }
-  }
-
-  // RGB to Hex
-  function isValidRgb(r, g, b) {
-    return [r, g, b].every(v => Number.isInteger(v) && v >= 0 && v <= 255);
-  }
-
-  function rgbToHex(r, g, b) {
-    return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase()}`;
-  }
-
-  function convertRgbToHex() {
-    const r = parseInt(document.getElementById('rInput').value);
-    const g = parseInt(document.getElementById('gInput').value);
-    const b = parseInt(document.getElementById('bInput').value);
-
-    if (isValidRgb(r, g, b)) {
-      document.getElementById('rgbToHexResult').innerText = `Result: ${rgbToHex(r, g, b)}`;
-    } else {
-      document.getElementById('rgbToHexResult').innerText = 'Please enter valid RGB values (0-255).';
-    }
-  }
-
-  // Function to convert the uploaded image to a selected format
-  let currentFormatSourceUrl = null;
-
-  function convertImageFormat() {
-    const fileInput = document.getElementById("imageFileInput");
-    const formatSelect = document.getElementById("imageFormatSelect");
-    const canvas = document.getElementById("imageCanvas");
-    const downloadLink = document.getElementById("downloadLink");
-
-    if (fileInput.files.length === 0) {
-      alert("Please select an image first!");
-      return;
-    }
-
-    const file = fileInput.files[0];
-
-    if (currentFormatSourceUrl) {
-      URL.revokeObjectURL(currentFormatSourceUrl);
-      currentFormatSourceUrl = null;
-    }
-
-    // Use an object URL instead of FileReader+data URL — faster and
-    // avoids holding a huge base64 string for large/high-res images.
-    const objectUrl = URL.createObjectURL(file);
-    currentFormatSourceUrl = objectUrl;
-
-    const img = new Image();
-    img.onload = function () {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-
-      const selectedFormat = formatSelect.value;
-      let imageDataURL;
-      try {
-        imageDataURL = canvas.toDataURL(selectedFormat);
-      } catch (err) {
-        alert("This browser could not export to the selected format.");
-        return;
-      }
-
-      // Browsers that don't support a given export format (commonly BMP
-      // and TIFF) silently fall back to PNG instead of throwing — warn
-      // the user so it's not mistaken for a bug.
-      if (!imageDataURL.startsWith(`data:${selectedFormat}`)) {
-        alert("Your browser doesn't support exporting to that format directly, so the result was saved as PNG instead.");
-      }
-
-      downloadLink.href = imageDataURL;
-      const extension = imageDataURL.substring(5, imageDataURL.indexOf(';')).split('/')[1] || 'png';
-      downloadLink.download = `converted-image.${extension}`;
-      downloadLink.style.display = "inline-block";
-
-      URL.revokeObjectURL(objectUrl);
-      currentFormatSourceUrl = null;
-    };
-    img.onerror = function () {
-      alert("Could not load that file as an image.");
-      URL.revokeObjectURL(objectUrl);
-      currentFormatSourceUrl = null;
-    };
-    img.src = objectUrl;
-  }
-
-  function convertMarkdown() {
-    const markdownText = document.getElementById("markdownInput").value;
-    const html = marked.parse(markdownText);
-    document.getElementById("htmlOutput").innerHTML = html;
-  }
-</script>
-
-
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-md5@0.7.3/build/md5.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ---------- shared helpers ---------- */
+function u8ToB64(u8){let s="";for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)}
+function b64ToU8(str){
+  let s=str.replace(/\s+/g,"").replace(/-/g,"+").replace(/_/g,"/");
+  if(/[^A-Za-z0-9+/=]/.test(s))throw new Error("Input contains characters that are not valid Base64.");
+  s=s.replace(/=+$/,"");if(s.length%4===1)throw new Error("Base64 string is incomplete.");
+  const bin=atob(s+"=".repeat((4-s.length%4)%4)),u=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+const enc=s=>new TextEncoder().encode(s), dec=u=>new TextDecoder("utf-8",{fatal:true}).decode(u);
+const fmtNum=n=>String(+Number(n).toPrecision(12));
+function fmtSize(b){return b>1048576?(b/1048576).toFixed(2)+" MB":(b/1024).toFixed(1)+" KB"}
+function words(s){return s.match(/[\p{L}\p{N}]+/gu)||[]}
+
+function parseCSV(t){
+  const rows=[];let r=[],f="",q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;
+    else if(c===","){r.push(f);f=""}
+    else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;r.push(f);rows.push(r);r=[];f=""}
+    else f+=c}
+  if(f!==""||r.length){r.push(f);rows.push(r)}
+  return rows.filter(r=>r.some(x=>x.trim()!==""))}
+function csvToJson(t){
+  const rows=parseCSV(t);if(!rows.length)return "";
+  const h=rows[0].map(x=>x.trim());
+  return JSON.stringify(rows.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]??""]))),null,2)}
+function jsonToCsv(t){
+  let d=JSON.parse(t);if(!Array.isArray(d))d=[d];
+  if(!d.every(o=>o&&typeof o==="object"))throw new Error("JSON must be an object or an array of objects.");
+  const keys=[...new Set(d.flatMap(o=>Object.keys(o)))];
+  const cell=v=>{if(v==null)return"";v=typeof v==="object"?JSON.stringify(v):String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  return [keys.map(cell).join(","),...d.map(o=>keys.map(k=>cell(o[k])).join(","))].join("\n")}
+
+const caseFn=f=>s=>f(words(s),s);
+const cap=w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
+function bigIn(s,base){s=s.trim().replace(/[\s_]/g,"").replace(/^0[xbo]/i,"");if(!s)return "";
+  const p={2:"0b",8:"0o",10:"",16:"0x"}[base];try{return BigInt(p+s)}catch{throw new Error("That is not a valid base-"+base+" number.")}}
+
+/* ---------- text-style tools ---------- */
+const TEXT_TOOLS=[
+ {id:"csv-json",g:"Data",n:"CSV and JSON",d:"Convert tables between CSV and JSON. Quoted fields and commas inside values are handled.",modes:[["CSV → JSON",csvToJson],["JSON → CSV",jsonToCsv]]},
+ {id:"json-format",g:"Data",n:"JSON formatter",d:"Pretty-print, minify, or validate JSON.",modes:[["Pretty-print",s=>JSON.stringify(JSON.parse(s),null,2)],["Minify",s=>JSON.stringify(JSON.parse(s))]]},
+ {id:"text-base64",g:"Text",n:"Text and Base64",d:"Encode or decode Base64. Works with emoji and non-Latin text.",modes:[["Text → Base64",s=>u8ToB64(enc(s))],["Base64 → Text",s=>dec(b64ToU8(s))],["Text → URL-safe Base64",s=>u8ToB64(enc(s)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")]]},
+ {id:"url-encode",g:"Text",n:"URL encoding",d:"Percent-encode or decode text for use in URLs.",modes:[["Encode",encodeURIComponent],["Decode",s=>decodeURIComponent(s.replace(/\+/g," "))],["Encode full URL",encodeURI]]},
+ {id:"html-entities",g:"Text",n:"HTML entities",d:"Escape or unescape special characters in HTML.",modes:[["Escape",esc],["Unescape",s=>{const t=document.createElement("textarea");t.innerHTML=s;return t.value}]]},
+ {id:"text-binary",g:"Text",n:"Text, hex and binary",d:"Convert text to its binary or hex bytes, and back.",modes:[["Text → Hex",s=>[...enc(s)].map(b=>b.toString(16).padStart(2,"0")).join(" ")],["Hex → Text",s=>{const h=s.replace(/0x|\s/gi,"");if(/[^0-9a-f]/i.test(h)||h.length%2)throw new Error("Enter an even number of hex digits.");return dec(Uint8Array.from(h.match(/../g)||[],x=>parseInt(x,16)))}],["Text → Binary",s=>[...enc(s)].map(b=>b.toString(2).padStart(8,"0")).join(" ")],["Binary → Text",s=>{const b=s.replace(/\s/g,"");if(/[^01]/.test(b)||b.length%8)throw new Error("Enter groups of 8 binary digits.");return dec(Uint8Array.from(b.match(/.{8}/g)||[],x=>parseInt(x,2)))}]]},
+ {id:"text-case",g:"Text",n:"Text case",d:"Change capitalisation or naming style.",modes:[["UPPER CASE",s=>s.toUpperCase()],["lower case",s=>s.toLowerCase()],["Title Case",s=>s.toLowerCase().replace(/(^|[\s\-_])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase())],["Sentence case",s=>s.toLowerCase().replace(/(^\s*|[.!?]\s+)(\p{L})/gu,(m,a,b)=>a+b.toUpperCase())],["camelCase",caseFn(w=>w.map((x,i)=>i?cap(x):x.toLowerCase()).join(""))],["PascalCase",caseFn(w=>w.map(cap).join(""))],["snake_case",caseFn(w=>w.map(x=>x.toLowerCase()).join("_"))],["kebab-case",caseFn(w=>w.map(x=>x.toLowerCase()).join("-"))]]},
+ {id:"text-stats",g:"Text",n:"Word counter",d:"Count words, characters, lines, and estimated reading time.",modes:[["Count",s=>{const w=words(s).length;return `Words: ${w}\nCharacters: ${[...s].length}\nCharacters (no spaces): ${[...s.replace(/\s/g,"")].length}\nLines: ${s?s.split(/\n/).length:0}\nReading time: ${Math.max(w?1:0,Math.round(w/230))} min`}]]},
+ {id:"number-base",g:"Numbers",n:"Number bases",d:"Convert whole numbers between decimal, binary, octal, and hex. Prefixes like 0x are accepted.",modes:[["Decimal → Binary",s=>{const n=bigIn(s,10);return n===""?"":n.toString(2)}],["Decimal → Hex",s=>{const n=bigIn(s,10);return n===""?"":n.toString(16).toUpperCase()}],["Decimal → Octal",s=>{const n=bigIn(s,10);return n===""?"":n.toString(8)}],["Binary → Decimal",s=>String(bigIn(s,2))],["Hex → Decimal",s=>String(bigIn(s,16))],["Octal → Decimal",s=>String(bigIn(s,8))]]},
+ {id:"timestamp",g:"Numbers",n:"Unix timestamp",d:"Convert Unix time (seconds or milliseconds) to a date, or a date to Unix time.",modes:[["Timestamp → Date",s=>{const n=Number(s.trim());if(!isFinite(n)||s.trim()==="")throw new Error("Enter a number.");const d=new Date(Math.abs(n)>1e11?n:n*1000);if(isNaN(d))throw new Error("That timestamp is out of range.");return `ISO: ${d.toISOString()}\nUTC: ${d.toUTCString()}\nLocal: ${d.toString()}`}],["Date → Timestamp",s=>{const d=new Date(s.trim());if(isNaN(d))throw new Error("Could not read that date. Try 2026-11-14 10:30.");return `Seconds: ${Math.floor(d/1000)}\nMilliseconds: ${d.getTime()}`}]]}
+];
+
+function textToolUI(t){
+  return `<div class="card"><label for="mode">Conversion</label><select id="mode">${t.modes.map((m,i)=>`<option value="${i}">${esc(m[0])}</option>`).join("")}</select>
+  <label for="in">Input</label><textarea id="in" spellcheck="false"></textarea>
+  <label for="out">Output</label><textarea id="out" readonly></textarea><div class="err" id="err"></div>
+  <div class="row"><button data-t="out">Copy output</button><button class="ghost" id="swap">Use output as input</button></div></div>`}
+function textToolInit(t){
+  const run=()=>{const v=$("in").value;$("err").textContent="";
+    if(!v.trim()&&t.id!=="text-stats"){$("out").value="";return}
+    try{$("out").value=t.modes[$("mode").value][1](v)}catch(e){$("out").value="";$("err").textContent=e.message||"Could not convert this input."}};
+  $("in").oninput=run;$("mode").onchange=run;
+  $("swap").onclick=()=>{$("in").value=$("out").value;run()}}
+
+/* ---------- custom tools ---------- */
+const kv=(rows)=>rows.map(([l,v])=>`<div class="kv"><span>${esc(l)}</span><code>${esc(v)}</code><button class="ghost" data-c>Copy</button></div>`).join("");
+function download(a,blob,name){if(a._u)URL.revokeObjectURL(a._u);a._u=URL.createObjectURL(blob);a.href=a._u;a.download=name;a.style.display="inline-block"}
+
+const CUSTOM=[
+{id:"image-base64",g:"Images",n:"Image and Base64",d:"Turn an image into a Base64 string, or paste Base64 to get the image back.",
+ui:()=>`<div class="card"><h3 style="margin-top:0">Image → Base64</h3>
+  <label for="f1">Choose an image</label><input type="file" id="f1" accept="image/*">
+  <label for="fmt">Output</label><select id="fmt"><option value="data">Data URL (data:image/png;base64,…)</option><option value="raw">Raw Base64 only</option></select>
+  <label for="o1">Result (preview)</label><textarea id="o1" readonly></textarea><div class="note" id="n1"></div><img class="pv" id="p1" alt="" hidden>
+  <div class="row"><button id="cp1" hidden>Copy full Base64</button></div></div>
+  <div class="card"><h3 style="margin-top:0">Base64 → Image</h3>
+  <label for="i2">Paste a data URL or raw Base64</label><textarea id="i2" spellcheck="false"></textarea>
+  <div class="row"><button id="go2">Convert to image</button></div><div class="err" id="e2"></div>
+  <img class="pv" id="p2" alt="Converted image" hidden><div class="row"><a class="btn" id="dl2" style="display:none">Download image</a></div></div>`,
+init(){
+  let full="";
+  const build=()=>{const s=full;if(!s)return;const out=$("fmt").value==="raw"?s.slice(s.indexOf(",")+1):s;full=out;};
+  let dataUrl="";
+  const show=()=>{if(!dataUrl)return;full=$("fmt").value==="raw"?dataUrl.slice(dataUrl.indexOf(",")+1):dataUrl;
+    $("o1").value=full.length>3000?full.slice(0,3000)+"\n… [preview only]":full;
+    $("n1").textContent=`Full string: ${fmtSize(full.length)}`+(full.length>3000?". Use Copy to get all of it.":"");
+    $("cp1").hidden=false;$("cp1").onclick=()=>copyText(full,$("cp1"))};
+  $("f1").onchange=()=>{const f=$("f1").files[0];if(!f)return;const r=new FileReader();
+    r.onload=()=>{dataUrl=r.result;$("p1").src=dataUrl;$("p1").hidden=false;show()};
+    r.onerror=()=>{$("n1").textContent="Could not read that file."};r.readAsDataURL(f)};
+  $("fmt").onchange=show;
+  $("go2").onclick=()=>{const e=$("e2"),img=$("p2"),a=$("dl2");e.textContent="";img.hidden=true;a.style.display="none";
+    try{let s=$("i2").value.trim().replace(/^["']|["']$/g,"");if(!s)throw new Error("Paste a Base64 string first.");
+      let mime,body;const m=s.match(/^data:([^;,]+)?(;[^,]*)?,([\s\S]*)$/i);
+      if(m){mime=m[1]||"image/png";body=decodeURIComponent(m[3]).replace(/\s+/g,"")}
+      else{body=s.replace(/\s+/g,"");const sig=[["/9j/","jpeg"],["iVBOR","png"],["R0lGOD","gif"],["UklGR","webp"],["Qk","bmp"],["PHN2Zy","svg+xml"],["PD94","svg+xml"],["AAAB","x-icon"]].find(x=>body.startsWith(x[0]));
+        if(!sig)throw new Error("Could not detect the image type. Paste the full data URL, starting with data:image/…");mime="image/"+sig[1]}
+      const blob=new Blob([b64ToU8(body)],{type:mime});
+      if(img._u)URL.revokeObjectURL(img._u);img._u=URL.createObjectURL(blob);
+      img.onload=()=>{img.hidden=false;download(a,blob,"converted."+(mime.split("/")[1].replace("jpeg","jpg").replace("svg+xml","svg").replace("x-icon","ico")))};
+      img.onerror=()=>{e.textContent="This string decoded, but it is not a valid image. Check that it is complete."};
+      img.src=img._u}catch(err){e.textContent=err.message}}}},
+
+{id:"image-format",g:"Images",n:"Image format converter",d:"Convert images to PNG, JPG, or WebP, with optional resizing. Everything stays in your browser.",
+ui:()=>`<div class="card"><label for="f3">Choose an image</label><input type="file" id="f3" accept="image/*">
+  <div class="row"><div class="grow"><label for="t3">Convert to</label><select id="t3"><option value="image/png">PNG</option><option value="image/jpeg">JPG</option><option value="image/webp">WebP</option></select></div>
+  <div class="grow"><label for="q3">Quality (JPG, WebP): <span id="qv">90</span>%</label><input type="range" id="q3" min="10" max="100" value="90" style="width:100%"></div>
+  <div class="grow"><label for="w3">Max width (px, optional)</label><input type="number" id="w3" min="1" placeholder="Original"></div></div>
+  <div class="row"><button id="go3">Convert</button></div><div class="err" id="e3"></div><div class="note" id="n3"></div>
+  <img class="pv" id="p3" alt="Converted image" hidden><div class="row"><a class="btn" id="dl3" style="display:none">Download image</a></div></div>`,
+init(){
+  $("q3").oninput=()=>$("qv").textContent=$("q3").value;
+  $("go3").onclick=()=>{const f=$("f3").files[0],e=$("e3");e.textContent="";$("n3").textContent="";
+    if(!f){e.textContent="Choose an image first.";return}
+    const url=URL.createObjectURL(f),img=new Image();
+    img.onload=()=>{let w=img.naturalWidth||300,h=img.naturalHeight||150;const mw=parseInt($("w3").value);
+      if(mw>0&&mw<w){h=Math.round(h*mw/w);w=mw}
+      const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d"),type=$("t3").value;
+      if(type==="image/jpeg"){x.fillStyle="#fff";x.fillRect(0,0,w,h)}
+      x.drawImage(img,0,0,w,h);URL.revokeObjectURL(url);
+      c.toBlob(b=>{if(!b){e.textContent="The browser could not export this image. Try a smaller size.";return}
+        if(b.type!==type)$("n3").textContent="This browser cannot export that format, so it saved as "+b.type.split("/")[1].toUpperCase()+" instead.";
+        const ext=b.type.split("/")[1].replace("jpeg","jpg"),p=$("p3");if(p._u)URL.revokeObjectURL(p._u);p._u=URL.createObjectURL(b);p.src=p._u;p.hidden=false;
+        $("n3").textContent+=` ${w}×${h}px, ${fmtSize(b.size)} (original ${fmtSize(f.size)}).`;
+        download($("dl3"),b,(f.name.replace(/\.[^.]+$/,"")||"image")+"."+ext)},type,$("q3").value/100)};
+    img.onerror=()=>{URL.revokeObjectURL(url);e.textContent="Could not read that file as an image."};img.src=url}}},
+
+{id:"markdown",g:"Data",n:"Markdown to HTML",d:"Write Markdown and see the rendered result and the HTML source.",
+ui:()=>`<div class="card"><label for="md">Markdown</label><textarea id="md" spellcheck="false" placeholder="# Hello\n\nWrite **Markdown** here."></textarea>
+  <label>Preview</label><iframe id="pv" sandbox title="Markdown preview"></iframe>
+  <label for="hs">HTML source</label><textarea id="hs" readonly></textarea><div class="err" id="em"></div><div class="row"><button data-t="hs">Copy HTML</button></div></div>`,
+init(){
+  $("md").oninput=()=>{const v=$("md").value;$("em").textContent="";
+    if(typeof marked==="undefined"){$("em").textContent="The Markdown library did not load. Check your connection and reload.";return}
+    const html=marked.parse(v);$("hs").value=html;
+    $("pv").srcdoc=`<style>body{font:15px/1.6 system-ui,sans-serif;color:#222;margin:14px}pre,code{background:#f1f1f1;border-radius:4px}pre{padding:10px;overflow:auto}code{padding:1px 4px}img{max-width:100%}blockquote{border-left:3px solid #ccc;margin:0;padding-left:12px;color:#555}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style>`+html}}},
+
+{id:"color",g:"Color and hash",n:"Color converter",d:"Convert between HEX, RGB, and HSL. Type any of the three, or pick a color.",
+ui:()=>`<div class="card"><div class="swatch" id="sw"></div><label for="ci">Color (for example #34A7E0, rgb(52,167,224), hsl(201,74%,55%))</label>
+  <div class="row" style="margin-top:0"><input type="text" id="ci" class="grow" value="#34A7E0" spellcheck="false"><input type="color" id="cp" value="#34a7e0" aria-label="Pick a color"></div>
+  <div class="err" id="ec"></div><div id="co"></div></div>`,
+init(){
+  const toHsl=(r,g,b)=>{r/=255;g/=255;b/=255;const M=Math.max(r,g,b),m=Math.min(r,g,b),l=(M+m)/2,d=M-m;let h=0,s=0;
+    if(d){s=d/(1-Math.abs(2*l-1));h=M===r?((g-b)/d)%6:M===g?(b-r)/d+2:(r-g)/d+4;h=(h*60+360)%360}return[Math.round(h),Math.round(s*100),Math.round(l*100)]};
+  const fromHsl=(h,s,l)=>{s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return[f(0),f(8),f(4)].map(v=>Math.round(v*255))};
+  const parse=s=>{s=s.trim().toLowerCase();let m=s.match(/^#?([0-9a-f]+)$/);
+    if(m&&[3,4,6,8].includes(m[1].length)){let h=m[1];if(h.length<5)h=[...h].map(c=>c+c).join("");return[0,2,4].map(i=>parseInt(h.substr(i,2),16))}
+    const n=s.replace(/^(rgb|hsl)a?\(|\)|%|deg/g,"").split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
+    if(n.length>=3&&n.slice(0,3).every(x=>!isNaN(x))){if(s.startsWith("hsl")){if(n[1]>100||n[2]>100)throw 0;return fromHsl(n[0],n[1],n[2])}if(n.slice(0,3).every(x=>x>=0&&x<=255))return n.slice(0,3).map(Math.round)}
+    throw 0};
+  const run=()=>{try{const[r,g,b]=parse($("ci").value),hex="#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("").toUpperCase(),[h,s,l]=toHsl(r,g,b);
+    $("ec").textContent="";$("sw").style.background=hex;$("cp").value=hex.toLowerCase();
+    $("co").innerHTML=kv([["HEX",hex],["RGB",`rgb(${r}, ${g}, ${b})`],["HSL",`hsl(${h}, ${s}%, ${l}%)`]])}
+    catch{$("ec").textContent="Could not read that color. Use HEX, rgb(r, g, b), or hsl(h, s%, l%).";$("co").innerHTML=""}};
+  $("ci").oninput=run;$("cp").oninput=()=>{$("ci").value=$("cp").value;run()};run()}},
+
+{id:"hash",g:"Color and hash",n:"Hash generator",d:"Generate MD5 and SHA hashes from text or a file. Nothing leaves your browser.",
+ui:()=>`<div class="card"><label for="ht">Text</label><textarea id="ht" spellcheck="false" style="min-height:90px"></textarea>
+  <label for="hf">Or choose a file</label><input type="file" id="hf"><div class="err" id="eh"></div><div id="ho"></div></div>`,
+init(){
+  const dig=async(a,buf)=>[...new Uint8Array(await crypto.subtle.digest(a,buf))].map(b=>b.toString(16).padStart(2,"0")).join("");
+  let tok=0;
+  const show=async buf=>{const my=++tok,rows=[];$("eh").textContent="";
+    try{if(typeof md5!=="undefined")rows.push(["MD5",md5(buf)]);
+      if(!(window.crypto&&crypto.subtle))throw new Error("SHA hashing needs a secure (HTTPS) page.");
+      for(const[n,a]of[["SHA-1","SHA-1"],["SHA-256","SHA-256"],["SHA-384","SHA-384"],["SHA-512","SHA-512"]])rows.push([n,await dig(a,buf)]);
+      if(my===tok)$("ho").innerHTML=kv(rows)}catch(e){$("eh").textContent=e.message;$("ho").innerHTML=rows.length?kv(rows):""}};
+  $("ht").oninput=()=>{$("hf").value="";if(!$("ht").value){$("ho").innerHTML="";return}show(enc($("ht").value))};
+  $("hf").onchange=async()=>{const f=$("hf").files[0];if(!f)return;$("ht").value="";show(await f.arrayBuffer())}}},
+
+{id:"units",g:"Numbers",n:"Unit converter",d:"Convert length, weight, temperature, area, volume, speed, time, and data size.",
+ui:()=>`<div class="card"><label for="uc">Category</label><select id="uc"></select>
+  <div class="row"><div class="grow"><label for="uv">Value</label><input type="number" id="uv" value="1" step="any"></div>
+  <div class="grow"><label for="uf">From</label><select id="uf"></select></div><div class="grow"><label for="ut">To</label><select id="ut"></select></div></div>
+  <div class="err" id="eu"></div><div id="uo"></div></div>`,
+init(){
+  const U={Length:{mm:.001,cm:.01,m:1,km:1000,inch:.0254,foot:.3048,yard:.9144,mile:1609.344},
+   Weight:{mg:1e-6,g:.001,kg:1,tonne:1000,ounce:.028349523125,pound:.45359237},
+   Area:{"cm²":1e-4,"m²":1,hectare:1e4,"km²":1e6,"ft²":.09290304,acre:4046.8564224},
+   Volume:{mL:.001,L:1,"m³":1000,tsp:.00492892159,tbsp:.01478676478,"fl oz":.0295735296,cup:.2365882365,gallon:3.785411784},
+   Speed:{"m/s":1,"km/h":1/3.6,mph:.44704,knot:.514444},
+   Time:{ms:.001,second:1,minute:60,hour:3600,day:86400,week:604800},
+   "Data size":{bit:.125,byte:1,KB:1e3,MB:1e6,GB:1e9,TB:1e12,KiB:1024,MiB:1048576,GiB:2**30,TiB:2**40},
+   Temperature:{"°C":1,"°F":1,K:1}};
+  const tc={"°C":[x=>x,x=>x],"°F":[x=>(x-32)*5/9,x=>x*9/5+32],K:[x=>x-273.15,x=>x+273.15]};
+  const fill=(sel,keys,i)=>{sel.innerHTML=keys.map(k=>`<option>${esc(k)}</option>`).join("");sel.selectedIndex=i};
+  $("uc").innerHTML=Object.keys(U).map(k=>`<option>${k}</option>`).join("");
+  const reset=()=>{const k=Object.keys(U[$("uc").value]);fill($("uf"),k,Math.min(2,k.length-1));fill($("ut"),k,Math.min(3,k.length-1));run()};
+  const conv=(v,c,f,t)=>c==="Temperature"?tc[t][1](tc[f][0](v)):v*U[c][f]/U[c][t];
+  function run(){const c=$("uc").value,v=parseFloat($("uv").value);$("eu").textContent="";
+    if(isNaN(v)){$("uo").innerHTML="";$("eu").textContent="Enter a number.";return}
+    const f=$("uf").value;$("uo").innerHTML=kv(Object.keys(U[c]).filter(k=>k!==f||0).map(k=>[k,fmtNum(conv(v,c,f,k))]));
+    $("ut").style.outline="";}
+  $("uc").onchange=reset;$("uv").oninput=run;$("uf").onchange=run;$("ut").onchange=()=>{const c=$("uc").value,v=parseFloat($("uv").value);if(!isNaN(v))$("uo").innerHTML=kv([[$("ut").value,fmtNum(conv(v,c,$("uf").value,$("ut").value))],...Object.keys(U[c]).filter(k=>k!==$("ut").value).map(k=>[k,fmtNum(conv(v,c,$("uf").value,k))])])};
+  reset()}}
+];
+
+/* ---------- registry, nav, routing ---------- */
+const TOOLS=[...TEXT_TOOLS.map(t=>({...t,ui:()=>textToolUI(t),init:()=>textToolInit(t)})),...CUSTOM];
+const ORDER=["Data","Text","Images","Color and hash","Numbers"];
+
+function copyText(text,btn){
+  const done=()=>{const o=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=o,1200)};
+  const fb=()=>{const t=document.createElement("textarea");t.value=text;document.body.appendChild(t);t.select();try{document.execCommand("copy");done()}catch{btn.textContent="Copy failed"}t.remove()};
+  navigator.clipboard?navigator.clipboard.writeText(text).then(done,fb):fb()}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button[data-c],button[data-t]");if(!b)return;
+  if(b.dataset.t)copyText($(b.dataset.t).value,b);
+  else copyText(b.parentElement.querySelector("code").textContent,b)});
+
+function renderNav(cur){
+  $("nav").innerHTML=`<div class="top"><div class="brand">Konverter</div><button class="ghost" id="theme" aria-label="Switch theme">Theme</button></div><div class="chips">`+ORDER.map(g=>`<h3>${g}</h3>`+TOOLS.filter(t=>t.g===g).map(t=>`<a href="#${t.id}" class="${t.id===cur?"on":""}">${esc(t.n)}</a>`).join("")).join("")+`</div>`;
+  const on=document.querySelector("nav a.on");if(on&&matchMedia("(max-width:760px)").matches)on.scrollIntoView({inline:"center",block:"nearest"});
+  $("theme").onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;r.dataset.theme=dark?"light":"dark"}}
+function route(){
+  const t=TOOLS.find(x=>x.id===location.hash.slice(1))||TOOLS[0];
+  renderNav(t.id);document.title=t.n+" · Konverter";
+  $("main").innerHTML=`<h1>${esc(t.n)}</h1><p class="sub">${esc(t.d)}</p>`+t.ui()+`<footer class="foot"><a href="https://goutham.live">© 2026-27 goutham.live</a></footer>`;t.init();window.scrollTo(0,0)}
+addEventListener("hashchange",route);route();
+</script>
 </body>
 </html>
